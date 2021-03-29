@@ -12,7 +12,7 @@
 
 <meta name="author" content="James S. Clark" />
 
-<meta name="date" content="2021-02-10" />
+<meta name="date" content="2021-03-29" />
 
 <title>Generalized joint attribute modeling - gjam</title>
 
@@ -43,7 +43,14 @@ document.addEventListener('DOMContentLoaded', function() {
     </style>
 
 
-<style type="text/css">code{white-space: pre;}</style>
+<style type="text/css">
+  code {
+    white-space: pre;
+  }
+  .sourceCode {
+    overflow: visible;
+  }
+</style>
 <style type="text/css" data-origin="pandoc">
 code.sourceCode > span { display: inline-block; line-height: 1.25; }
 code.sourceCode > span { color: inherit; text-decoration: inherit; }
@@ -329,12 +336,12 @@ code > span.er { color: #a61717; background-color: #e3d2d2; }
 
 <h1 class="title toc-ignore">Generalized joint attribute modeling - gjam</h1>
 <h4 class="author"><a href="http://sites.nicholas.duke.edu/clarklab/">James S. Clark</a></h4>
-<h4 class="date">2021-02-10</h4>
+<h4 class="date">2021-03-29</h4>
 
 
 <div id="TOC">
 <ul>
-<li><a href="#version-2.3.4">version 2.3.4</a></li>
+<li><a href="#version-2.3.5">version 2.3.5</a></li>
 <li><a href="#overview"><span style="color:darkgreen">overview</span></a><ul>
 <li><a href="#model-summary"><span style="color:teal">model summary</span></a></li>
 <li><a href="#data-types"><span style="color:teal">data types</span></a></li>
@@ -392,8 +399,8 @@ code > span.er { color: #a61717; background-color: #e3d2d2; }
 </ul>
 </div>
 
-<div id="version-2.3.4" class="section level2">
-<h2>version 2.3.4</h2>
+<div id="version-2.3.5" class="section level2">
+<h2>version 2.3.5</h2>
 <div id="citation" class="section level4">
 <h4>citation:</h4>
 <p><em>Clark, J.S., D. Nemergut, B. Seyednasrollah, P. Turner, and S. Zhang. 2017. Generalized joint attribute modeling for biodiversity analysis: Median-zero, multivariate, multifarious data, Ecological Monographs, 87, 34–56.</em></p>
@@ -1157,22 +1164,22 @@ code > span.er { color: #a61717; background-color: #e3d2d2; }
 <h2><span style="color:teal">categorical data</span></h2>
 <p>Categorical data have levels within groups. The levels are unordered. The columns in <code>ydata</code> that hold categorical responses are declared as <code>typeNames = &quot;CAT&quot;</code>. In observation vector <span class="math inline">\(\mathbf{y}_{i}\)</span> there are elements for one less than the number of factor levels. Suppose that observations are obtained on attributes of individual plants, each plant being an observation. The group <code>leaf</code> type might have four levels broadleaf decidious <code>bd</code>, needleleaf decidious <code>nd</code>, broadleaf evergreen <code>be</code>, and needleaf evergreen <code>ne</code>. A second group <code>xylem</code> anatomy might have three levels diffuse porous <code>dp</code>, ring porous <code>rp</code>, and tracheid <code>tr</code>. In both cases I assign the last class to be a reference class, <code>other</code>. Ten rows of the response matrix data might look like this:</p>
 <pre><code>##    leaf xylem
-## 1    nd other
-## 2 other    rp
-## 3 other    rp
-## 4    be other
-## 5    bd    rp
-## 6    be    dp
-## 7    be    dp</code></pre>
+## 1    bd    rp
+## 2    bd other
+## 3    bd    rp
+## 4    nd    rp
+## 5 other    dp
+## 6 other    rp
+## 7    nd other</code></pre>
 <p>This <code>data.frame ydata</code> becomes this response matrix <code>y</code>:</p>
 <pre><code>##      leaf_bd leaf_nd leaf_be leaf_other xylem_dp xylem_rp xylem_other
-## [1,]       0       1       0          0        0        0           1
-## [2,]       0       0       0          1        0        1           0
-## [3,]       0       0       0          1        0        1           0
-## [4,]       0       0       1          0        0        0           1
-## [5,]       1       0       0          0        0        1           0
-## [6,]       0       0       1          0        1        0           0
-## [7,]       0       0       1          0        1        0           0</code></pre>
+## [1,]       1       0       0          0        0        1           0
+## [2,]       1       0       0          0        0        0           1
+## [3,]       1       0       0          0        0        1           0
+## [4,]       0       1       0          0        0        1           0
+## [5,]       0       0       0          1        1        0           0
+## [6,]       0       0       0          1        0        1           0
+## [7,]       0       1       0          0        0        0           1</code></pre>
 <p><code>gjam</code> expands the two groups into four and three columns in <code>y</code>, respectively. As for composition data there is one redundant column for each group. Here is an example with simulated data, having two categorical groups:</p>
 <div class="sourceCode" id="cb43"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb43-1"><a href="#cb43-1"></a>types &lt;-<span class="st"> </span><span class="kw">c</span>(<span class="st">&#39;CAT&#39;</span>,<span class="st">&#39;CAT&#39;</span>)</span>
 <span id="cb43-2"><a href="#cb43-2"></a>f     &lt;-<span class="st"> </span><span class="kw">gjamSimData</span>(<span class="dt">n=</span><span class="dv">2000</span>, <span class="dt">S =</span> <span class="kw">length</span>(types), <span class="dt">typeNames =</span> types)</span>

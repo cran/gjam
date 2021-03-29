@@ -3,7 +3,7 @@
 gjamPredict <- function(output, newdata = NULL, y2plot = NULL, ylim = NULL,
                         FULL = FALSE){
   
-  # output   - gjam object
+  # output   - class gjam object
   # newdata  - list with xdata and y needed for prediction
   # y2plot   - names of y for plotting
   # if y is included has only columns to condition on 
