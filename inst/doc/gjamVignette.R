@@ -148,7 +148,7 @@ bigskip <- function(){
 #  out$parameters$betaStandXTable  # SM by stats posterior summary
 #  out$parameters$betaStandXWTable # (S-F)M by stats posterior summary
 #  
-#  out$parameters$sensBeta         # sensitivity to ... response variables
+#  out$parameters$sensBeta         # sensitivity to response variables
 #  out$parameters$sensTable        # sensitivity to predictor variables
 #  
 #  out$parameters$sigMu         # S by S covariance matrix omega
@@ -298,7 +298,7 @@ x[1:5,]
 #  f   <- gjamSimData(n, S, typeNames = 'DA', effort = ef)
 #  ml  <- list(ng = 1000, burnin = 250, typeNames = f$typeNames, effort = ef)
 #  out <- gjam(f$formula, f$xdata, f$ydata, modelList = ml)
-#  pl  <- list(trueValues = f$trueValues, SMALLPLOTS=F)
+#  pl  <- list( trueValues = f$trueValues )
 #  gjamPlot(output = out, plotPars = pl)
 
 ## ----censUp, eval=F-----------------------------------------------------------
@@ -382,14 +382,14 @@ x[1:5,]
 #  f   <- gjamSimData(S = 8, typeNames = 'CC')
 #  ml  <- list(ng = 2000, burnin = 500, typeNames = f$typeNames)
 #  out <- gjam(f$formula, f$xdata, f$ydata, modelList = ml)
-#  pl  <- list(trueValues = f$trueValues, SMALLPLOTS = F)
+#  pl  <- list( trueValues = f$trueValues )
 #  gjamPlot(output = out, plotPars = pl)
 
 ## ----compFC, eval = FALSE-----------------------------------------------------
 #  f   <- gjamSimData(S = 20, typeNames = 'FC')
 #  ml  <- list(ng = 2000, burnin = 500, typeNames = f$typeNames)
 #  out <- gjam(f$formula, f$xdata, f$ydata, modelList = ml)
-#  pl  <- list(trueValues = f$trueValues, SMALLPLOTS = F)
+#  pl  <- list( trueValues = f$trueValues )
 #  gjamPlot(output = out, plotPars = pl)
 
 ## ----ordinal, eval = FALSE----------------------------------------------------
@@ -448,6 +448,146 @@ cbind(ml,mx)
 
 ## ----random group, eval = FALSE-----------------------------------------------
 #  modelList$random <- 'columnNameInXdata'
+
+## ---- eval=F, echo=F----------------------------------------------------------
+#  # lane's data
+#  
+#  load("output-SE.rdata", verbose=T)
+#  
+#   icols <- 1:25
+#   xdata <- out$inputs$xdata
+#   ydata <- out$inputs$y[,icols]
+#   form  <- as.formula( ~ minWinTemp + springPrcp + timeCat )
+#   ml    <- out$modelList
+#   ml$ng <- 2000
+#   ml$burnin <- 500
+#   ml$typeNames <- 'CA'
+#   ml$effort <- NULL
+#   ml$random <- 'observer'
+#  
+#  
+#   ml$reductList <- NULL
+#   out    <- .gjam(formula = form, xdata = xdata, ydata = ydata, modelList = ml)
+#  
+#   ml$reductList <- list(N = 25, r = 10)
+#   outputDR <- .gjam(formula = form, xdata = xdata, ydata = ydata, modelList = ml)
+#  
+#   output <- outputDR
+#  
+#  
+#   out <- gjamPredict(output, newdata = list( xdata = xdata ) )
+#  
+#  
+#  par(mfrow=c(5,5), mar=c(3,3,1,1))
+#  
+#  for(j in 1:25){
+#   # plot( jitter( ydata[,j], 60), output$prediction$ypredMu[,j], cex=.1)
+#    plot( jitter( ydata[,j], 60), out$sdList$yMu[,j], cex=.1)
+#    title(colnames(ydata)[j])
+#    abline(0,1)
+#    abline(h = mean(ydata[,j]))
+#  }
+#  
+#  
+#  
+#   ng     <- output$modelList$ng
+#   burnin <- output$modelList$burnin
+#  
+#  randByGroupMu  <- output$parameters$randByGroupMu  # S by G random groups, mean
+#  randByGroupSe  <- output$parameters$randByGroupSe  # SE
+#  groupIndex     <- output$parameters$groupIndex     # group index
+#  rndEffMu       <- output$parameters$rndEffMu       # n by S from dimension reduction
+#  rndEffSe       <- output$parameters$rndEffSe       # SE
+#  ngroup         <- ncol(randByGroupMu)
+#  x              <- output$inputs$xStand
+#  Q <- ncol(x)
+#  n <- nrow(x)
+#  S <- ncol(ydata)
+#  
+#  N <- r <- NULL
+#  REDUCT <- F
+#  RANDOM <- F
+#  MARGIN <- T
+#  
+#  N <- output$modelList$reductList$N
+#  r <- output$modelList$reductList$r
+#  if( !is.null(N) | N != 0 )REDUCT <- F
+#  if( !is.null(randByGroupMu) )RANDOM <- T
+#  
+#  ### only if marginalizing random groups ###############
+#  avm <- output$parameters$randGroupVarMu
+#  avs <- output$parameters$randGroupVarSe
+#  lt  <- lower.tri(avm, diag = T)
+#  wt  <- which(lt, arr.ind=T)
+#  avg <- matrix(0, S, S)
+#  #######################################################
+#  
+#  ysum <- ydata*0
+#  
+#  nsim <- 100
+#  
+#  for(i in 1:nsim){
+#  
+#    g  <- sample(burnin:ng, 1)
+#    bg <- matrix(output$chains$bgibbs[g,], Q, S)
+#  
+#    if(REDUCT){
+#  
+#      sigmaerror <- output$chains$sigErrGibbs[g]
+#  
+#      if(!MARGIN){                                  # use fitted random effects for dim reduct
+#        rndEff <- rndEffMu + matrix( rnorm( n*S, 0, rndEffSe ), n, S )
+#        sg     <- diag(sigmaerror, S)
+#      }else{                                        # marginalize random effects
+#        rndEff <- 0
+#        Z  <- matrix(output$chains$sgibbs[g,],N,r)
+#        K  <- output$chains$kgibbs[g,]
+#        sg <- .expandSigma(sigmaerror, S, Z = Z, K, REDUCT = T)
+#      }
+#  
+#    } else {
+#      sg <- .expandSigma(output$chains$sgibbs[g,], S = S, REDUCT = F)
+#    }
+#  
+#    mu <- x%*%bg
+#  
+#    groupRandEff <- 0
+#  
+#    if(RANDOM){
+#      if(MARGIN){
+#        avg[ wt ] <- rnorm(nrow(wt), avm[wt], avs[wt])
+#        avg[ wt[,c(2,1)] ] <- avg[ wt ]
+#        groupRandEff <- .rMVN(ngroup, 0, avg)[groupIndex,]  # observer
+#      }else{
+#        randByGroup  <- rnorm( length(randByGroupMu), randByGroupMu, randByGroupSe )
+#        groupRandEff <- t( matrix( randByGroup, S, ngroup ) )[groupIndex,]
+#      }
+#    }
+#  
+#    yp <- mu + .rMVN(n,0, sg) + groupRandEff + rndEff
+#    yp[ yp < 0 ] <- 0
+#  
+#    ysum <- ysum + yp
+#  }
+#  
+#  yp <- ysum/nsim
+#  
+#  par(mfrow=c(1,2), mar=c(4,4,1,1))
+#  plot( sqrt(ydata), sqrt(yp), cex=.1)
+#  abline(0,1)
+#  plot( sqrt(ydata), sqrt(output$prediction$ypredMu), cex=.1)
+#  abline(0,1)
+#  
+#  par(mfrow=c(4,4), mar=c(3,3,1,1))
+#  
+#  for(j in 1:15){
+#   # plot( jitter( output$prediction$ypredMu[,j], 60), sqrt(yp[,j]), cex=.1)
+#    plot( jitter( ydata[,j], 60), sqrt(yp[,j]), cex=.1)
+#    title(colnames(ydata)[j])
+#    abline(0,1)
+#    abline(h = mean(ydata[,j]))
+#  }
+#  
 
 ## ----simulate missing data, eval = FALSE--------------------------------------
 #  f <- gjamSimData(typeNames = 'OC', nmiss = 20)
@@ -516,8 +656,10 @@ cbind(ml,mx)
 #  p2     <- gjamPredict(output = out, newdata = new)$sdList$yMu[,tn == 'DA']
 #  plot(f$y[,tn == 'DA'], p1, xlab='Obs', ylab = 'Pred', cex=.1,
 #      ylim=range(c(p1,p2)))
-#  points(f$y[,tn == 'DA'], p2,col='orange',cex=.1)
+#  points(f$y[,tn == 'DA'], p2, col='orange',cex=.1)
 #  abline(0,1)
+#  legend( 'topleft', c('Conditioned on obs sp 1, 2', 'On mean(y1) and y2 = 0'),
+#          text.col = c('black','orange'), bty='n')
 
 ## ----input, eval = F----------------------------------------------------------
 #  library(repmis)
@@ -525,7 +667,7 @@ cbind(ml,mx)
 #  source_data(d)
 #  
 #  xdata <- forestTraits$xdata                          # n X Q
-#  ydata  <- gjamReZero(forestTraits$treesDeZero)        # n X S
+#  ydata  <- gjamReZero(forestTraits$treesDeZero)       # n X S
 #  ydata <- ydata[,colnames(ydata) != 'other']
 #  ydata <- gjamTrimY(ydata, 10, OTHER=F)$y
 
@@ -536,7 +678,7 @@ cbind(ml,mx)
 #  formula <- as.formula(~ temp + deficit*moisture)
 #  out <- gjam(formula, xdata, ydata, modelList = ml)
 #  
-#  #prediction
+#  # prediction
 #  newdata <- list(xdata = xdata, nsim=100)
 #  tmp     <- gjamPredict(out, newdata=newdata)
 #  full    <- tmp$sdList$yMu
@@ -554,10 +696,6 @@ cbind(ml,mx)
 #  plot(ydata[,-wc], full[,-wc], ylim=c(range(ydata)), cex=.2)
 #  abline(0,1)
 #  points(ydata[,-wc],condy[,-wc],col=2, cex=.2)
-#  rmspe <- c( mean((ydata[,-wc] - full[,-wc])^2),
-#              mean((ydata[,-wc] - condy[,-wc])^2))
-#  names(rmspe) <- c('unconditional','conditional')
-#  rmspe
 
 ## ---- eval=FALSE--------------------------------------------------------------
 #  S   <- 200
@@ -714,7 +852,7 @@ for(j in 1:length(xbox)){
   if(j == 1)text(tmp$mu[1],tmp$mu[2],
                  expression(paste(italic(E),'[',bold(W),']')))
   if(j == 2)text(tmp$mu[1],tmp$mu[2],expression(bold(X)))
-  if(j == 3)text(tmp$mu[1],tmp$mu[2],expression(hat(A)))
+  if(j == 3)text(tmp$mu[1],tmp$mu[2],expression(A))
 }
 
 ## ----input6, eval = F---------------------------------------------------------
@@ -886,19 +1024,31 @@ for(j in 1:length(xbox)){
 #                    traitList = tl, reductList = rl)
 #  out <- gjam(~ temp + stdage + deficit*soil, xdata = xdata,
 #                       ydata = pbys, modelList = ml)
-#  S  <- nrow(specByTrait)
-#  sc <- rep('black',S)
 #  
+#  S  <- nrow(specByTrait)
+#  sc <- rep('black', S)
 #  wr <- which(specByTrait[,'ring'] == 1)                  # ring porous
-#  wb <- which(specByTrait[,'leafneedleevergreen'] == 1)   # evergreen
+#  wb <- which(specByTrait[,'leafneedleevergreen'] == 1)   # needle-leaf evergreen
+#  wd <- which(specByTrait[,'leafneedledeciduous'] == 1)   # needle-leaf deciduous
 #  ws <- which(specByTrait[,'shade'] >= 4)                 # shade tolerant
-#  sc[wr] <- 'brown'
-#  sc[ws] <- 'black'
-#  sc[wb] <- 'darkgreen'
+#  sc[wr] <- '#8c510a'
+#  sc[ws] <- '#3288bd'
+#  sc[wb] <- '#003c30'
+#  sc[wd] <- '#80cdc1'
+#  
+#  M  <- ncol(specByTrait)
+#  tc <- rep('black', M)
+#  names(tc) <- colnames(specByTrait)
+#  tc[ 'ring' ] <- '#8c510a'
+#  tc[ 'leafneedleevergreen' ] <- '#3288bd'
+#  tc[ 'leafneedledeciduous' ] <- '#003c30'
+#  tc[ 'shade' ] <- '#80cdc1'
+#  
+#  ncluster <- 5
 #  
 #  par(family = '')
-#  pl  <- list(width=4, height=4, CORLINES=F, SMALLPLOTS=F,GRIDPLOTS=T,
-#                    specColor = sc, ncluster = 5)
+#  pl  <- list(width=4, height=4, CORLINES=F, GRIDPLOTS=T,
+#                    specColor = sc, traitColor = tc, ncluster = ncluster)
 #  fit <- gjamPlot(output = out, pl)
 
 ## ----trait pars, eval = F-----------------------------------------------------
@@ -914,7 +1064,7 @@ for(j in 1:length(xbox)){
 #  out$prediction$tSe[1:5,]     # n by M predictive std errors
 
 ## ----ecoms, eval = F----------------------------------------------------------
-#  fit$eComs[,1:4]
+#  fit$eComs[1:10,]
 
 ## ----checkRank, eval=F--------------------------------------------------------
 #  x <- model.matrix(formula, xdata)

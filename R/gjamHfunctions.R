@@ -1395,8 +1395,7 @@ gjamFillMissingTimes <- function(xdata, ydata, edata, groupCol, timeCol,
   scale  <- tmp$scale
   colseq <- tmp$colseq
   
-  ww    <- as.matrix(expand.grid(c(1:nr),c(1:nc1)))  # reverse order
- # mt    <- t(apply(mat1[rowOrder,colOrder1],1,rev)) ###########
+  ww <- as.matrix(expand.grid(c(1:nr),c(1:nc1)))  # reverse order
   mt <- mat1[rev(rowOrder),colOrder1]
   
   win <- which(ww[,1] >= ww[,2])
@@ -1788,6 +1787,10 @@ gjamFillMissingTimes <- function(xdata, ydata, edata, groupCol, timeCol,
     colorSeq <- c('darkblue','darkblue','blue',
                   'green','white',
                   'yellow','red','brown','brown')
+    colorSeq <- rev( c('#a50026','#d73027','#f46d43',
+                       '#fdae61','#fee090','#ffffbf',
+                       '#e0f3f8','#abd9e9','#74add1',
+                       '#4575b4','#313695') )
     colorGrad   <- colorRampPalette(colorSeq)
   }
   
@@ -2446,7 +2449,7 @@ gjamFillMissingTimes <- function(xdata, ydata, edata, groupCol, timeCol,
 }
 
 .gjamBaselineHist <- function(y1, bins = NULL, ylim = NULL, 
-                              htFraction = .3, nclass=20){
+                              htFraction = .5, nclass=20){
   
   # add histogram to base of current plot
   
@@ -2480,7 +2483,7 @@ gjamFillMissingTimes <- function(xdata, ydata, edata, groupCol, timeCol,
   if(!is.null(ylim)){  # scale to ht of plot
     dy <- diff(ylim)
     sc <- htFraction*dy/max(xy[2,])
-    xy[2,] <- xy[2,] + (xy[2,] - ylim[1])*sc
+    xy[2,] <- ylim[1] + (xy[2,] - ylim[1])*sc
   }
   xy
 }
@@ -4249,7 +4252,7 @@ gjamSensitivity <- function(output, group=NULL, nsim=100){
     termB <- TRUE
     if( !is.null(betaPrior) ) BPRIOR <- TRUE
     
-    }else{
+  }else{
     
     if(verbose)cat('\nFitted as a time series model\n')
     
@@ -4310,9 +4313,9 @@ gjamSensitivity <- function(output, group=NULL, nsim=100){
     holdoutN <-  0
     holdoutIndex  <- numeric(0)
   }
-   
+  
   if( is.character(formula) )formula <- as.formula(formula)
-    
+  
   if(!is.null(traitList)){
     TRAITS <- T
     for(k in 1:length(traitList))assign( names(traitList)[k], traitList[[k]] )
@@ -4927,7 +4930,7 @@ gjamSensitivity <- function(output, group=NULL, nsim=100){
     CImat <- solve(Cprior)
     Ckeep <- diag(S)
     
-    alphaRanSums <- alphaRandGroup*0
+    alphaRanSums <- alphaRanSums2 <- alphaRandGroup*0
     groupRandEff <- w*0
     
     Aindex <- which(as.vector(lower.tri(diag(S),diag=T)))
@@ -5218,7 +5221,7 @@ gjamSensitivity <- function(output, group=NULL, nsim=100){
     xlUnstand <- tmp$xu
   }
   
-  if(REDUCT)rndTot <- w*0 
+  if(REDUCT)rndTot <- rndTot2 <- w*0 
   notPA <- which(!typeNames == 'PA' & !typeNames == 'CON')
     
   if(length(y) < 10000 | FULL) FULL <- T
@@ -5253,7 +5256,6 @@ gjamSensitivity <- function(output, group=NULL, nsim=100){
       kgibbs[g,notOther]  <- otherpar$K
       sgibbs[g,]          <- as.vector(otherpar$Z)
       sigErrGibbs[g]      <- sigmaerror
-      
       sg[sgOther]         <- .1*sigmaerror
       
       sinv <- .invertSigma(sg[notOther,notOther],sigmaerror,otherpar,REDUCT)
@@ -5390,14 +5392,14 @@ gjamSensitivity <- function(output, group=NULL, nsim=100){
         
       }else{
         # marginalize parameter matrix
+        Y <- w[inSamp,notOther]
+        if(RANDOM)Y <- Y - groupRandEff[inSamp,notOther]
         XIXXX <- x[inSamp,]%*%solve(crossprod(x[inSamp,]))%*%t(x[inSamp,])
-        XUV   <- t(w[inSamp,notOther])%*%XIXXX%*%w[inSamp,notOther]
-        SI    <- solve( crossprod(w[inSamp,notOther]) - XUV )
+        XUV   <- t(Y)%*%XIXXX%*%Y
+        SI    <- solve( crossprod(Y) - XUV )
       }
       sinv <- .rwish(sigmaDf, SI)
-      
       sg[notOther,notOther] <- solveRcpp(sinv)
-      
       sgibbs[g,] <- sg[Kindex]
     }
     
@@ -5421,6 +5423,7 @@ gjamSensitivity <- function(output, group=NULL, nsim=100){
     if(RANDOM){
       
       cw <- w - muw
+      
       if(REDUCT){
         cw <- cw - rndEff
         v  <- 1/sigmaerror*.byGJAM(as.vector(cw), randGroupIndex[,1], 
@@ -5441,15 +5444,15 @@ gjamSensitivity <- function(output, group=NULL, nsim=100){
           sweep( alphaRandGroup[notOther,], 2, 
                  colMeans(alphaRandGroup[notOther,]), '-')
       }
-     SS  <- crossprod(t(alphaRandGroup[notOther,]))
-     SS  <- S*SS + Cmat
-     
-     testv <- try( chol(SS) ,T)
-     if( inherits(testv,'try-error') ){
-       tiny  <- .1*diag(SS)
-       SS  <- SS + diag(diag(SS + tiny))
-     }
-     
+      SS  <- crossprod(t(alphaRandGroup[notOther,]))
+      SS  <- S*SS + Cmat
+      
+      testv <- try( chol(SS) ,T)
+      if( inherits(testv,'try-error') ){
+        tiny  <- .01*diag(SS)
+        SS  <- SS + diag(diag(SS + tiny))
+      }
+      
       Ckeep[notOther,notOther] <- .riwish( df = S*G + 1, SS )
       CImat <- solveRcpp(Ckeep[notOther,notOther])
       
@@ -5588,6 +5591,11 @@ gjamSensitivity <- function(output, group=NULL, nsim=100){
       phi   <- tmp$phi
       wHold <- tmp$wHold    #values for w if not held out
       
+      # check
+  #    groupRandEff <- t(alphaRandGroup)[groupIndex,]
+  #    ypp <- x%*%bg + groupRandEff[inSamp,notOther]  + rndEff
+  #    ypp[ ypp < 0 ] <- 0
+      
       
       Y <- w[,notOther]
       if(holdoutN > 0) Y[holdoutIndex,] <- wHold[,notOther]  # if w not held out
@@ -5604,7 +5612,7 @@ gjamSensitivity <- function(output, group=NULL, nsim=100){
         IXX    <- solveRcpp(XX)
       }
       
-      if( PREDICTX & length(predXcols) > 0){
+      if( PREDICTX & length(predXcols) > 0 ){
         
         if( length(interBeta$isNonLinX) > 0 ){
           
@@ -5816,7 +5824,8 @@ gjamSensitivity <- function(output, group=NULL, nsim=100){
       }
       
       if(RANDOM){
-        alphaRanSums <- alphaRanSums + alphaRandGroup
+        alphaRanSums  <- alphaRanSums + alphaRandGroup
+        alphaRanSums2 <- alphaRanSums2 + alphaRandGroup^2
       }
       
       if(mmiss > 0){
@@ -5884,7 +5893,10 @@ gjamSensitivity <- function(output, group=NULL, nsim=100){
       hmESS[notOther,notOther][ eii > 0 ] <- hmESS[notOther,notOther][ eii > 0 ] + 1  # pos values
       ######################
       
-      if(REDUCT)rndTot <- rndTot + rndEff
+      if(REDUCT){
+        rndTot  <- rndTot + rndEff
+        rndTot2 <- rndTot2 + rndEff^2
+      }
       
       if(TRAITS){
         yw     <- sweep(yp,1,rowSums(yp),'/')
@@ -5974,7 +5986,6 @@ gjamSensitivity <- function(output, group=NULL, nsim=100){
     betaStandXWmu <- tmp$mu
     betaStandXWse <- tmp$se
     betaStandXWTable <- tmp$tab
-    
     
     if(!is.null(loB)){
       blo <- as.vector( t(loB) )
@@ -6140,7 +6151,9 @@ gjamSensitivity <- function(output, group=NULL, nsim=100){
     alphaRandGroupVarMu <- tmp$sMu
     alphaRandGroupVarSe <- tmp$sSe
     alphaRandByGroup <- alphaRanSums/ntot
-    
+    a2 <- alphaRanSums2/ntot - alphaRandByGroup^2
+    a2[ a2 < 0 ] <- 0
+    alphaRandByGroupSe <- sqrt(a2)
   }
   
   if(PREDICTX){
@@ -6404,17 +6417,21 @@ gjamSensitivity <- function(output, group=NULL, nsim=100){
     parameters <- append(parameters,
                          list( randGroupVarMu = alphaRandGroupVarMu,
                                randGroupVarSe = alphaRandGroupVarSe,
-                               randByGroup = alphaRandByGroup) )
+                               randByGroupMu = alphaRandByGroup,
+                               randByGroupSe = alphaRandByGroupSe,
+                               groupIndex = groupIndex) )
   }
   if(RICHNESS){
     prediction <- append(prediction, 
                          list(yPresentMu = ypredPresMu, yPresentSe = ypredPresSe))
   }
   if(REDUCT) {
-    parameters <- append(parameters, list(rndEff = rndTot/ntot))#, specRand = specRand))
-    chains <- append(chains,list(kgibbs = kgibbs, sigErrGibbs = sigErrGibbs))
+    rndEffMu <- rndTot/ntot
+    rndEffSe <- sqrt( rndTot2/ntot - rndEffMu^2)
+    parameters <- append( parameters, list(rndEffMu = rndEffMu, rndEffSe = rndEffSe) )
+    chains <- append( chains, list(kgibbs = kgibbs, sigErrGibbs = sigErrGibbs) )
   }
-  
+
   if('OC' %in% typeNames){
     parameters <- c(parameters,list(cutMu = cMu, cutSe = cSe))
     chains <- c(chains,list(cgibbs = cgibbs))
@@ -6888,7 +6905,7 @@ sqrtSeq <- function( xx, nbin = 15){ #labels for sqrt scale
   yy <- yy[ww]
   
   if( !add ){
-    if(!points){
+    if( !points ){
       plot(NA, xlim = xlimit, xlab = xlabel, ylab = ylabel, ylim = ylimit)
     }else{
     plot(xx, yy, col = .getColor( col, trans), cex = .3,
@@ -6900,12 +6917,14 @@ sqrtSeq <- function( xx, nbin = 15){ #labels for sqrt scale
   if( is.null(atx) )atx <- breaks
   
   if( is.null(atx) ){
-    tmp <- .bins4data(xx )
+    tmp <- .bins4data( xx )
     atx <- breaks  <- tmp$bins
   }
   
   bins <- atx
-  bin1 <- 1
+ # bin1 <- 1
+  
+  if( length(atx) < 8 )bins <- breaks <- .bins4data( xx )$bins
   nbin <- length(bins)
  # sbin <- length(bins)
   
@@ -6980,7 +6999,7 @@ sqrtSeq <- function(maxval, nbin = 10){ #labels for sqrt scale
   list(at = at, labs = labs)
 }
 
-.getBinSqrt <- function(xx, yy, nbin = 10){
+.getBinSqrt <- function(xx, yy, nbin = 10 ){
   
   yy[ yy < 0 ] <- 0
   
@@ -7015,17 +7034,15 @@ sqrtSeq <- function(maxval, nbin = 10){ #labels for sqrt scale
     wx  <- which( !duplicated(lax) )
     atx <- atx[wx]
     lax <- lax[wx]
-    
-  #  xtick <- seq(0, max(atx), length=nbin)
-  #  xlab  <- round( xtick^2 )
-    
   }
   
-  # bins vs labels
+  aty <- ty$at
   
-  list(xlim = range(tx$at, na.rm=T), ylim = range(ty$at, na.rm=T), 
-       atx = atx, labx = lax, xtick = xtick, xlab = xlab,
-       aty = ty$at, laby = ty$labs)
+  if(length(atx) == 1)atx <- range(xtick)
+  
+  list(xlim = range(tx$at, na.rm=T), ylim = range(aty, na.rm=T), 
+       atx = atx, labx = lax, xtick = atx, 
+       aty = aty, laby = ty$labs)
 }
 
 .shadeInterval <- function(xvalues,loHi,col='grey',PLOT  = TRUE, add  = TRUE,
@@ -7434,12 +7451,12 @@ smooth.na <- function(x,y){
     par(mfrow=mfrow,bty='n', oma=oma, mar=mar, tcl= tcl, mgp=mgp)
     
     if( termB ){
-      beta <- trueValues$beta
       
-      sc <- beta*0
+      beta <- trueValues$beta
+      sc   <- beta*0
       sc[ keepBC ] <- 1
       sc <- specColor[ which(sc == 1, arr.ind=T)[,2] ]
-      if(length(beta) < 100){
+      if( length(beta) < 100 ){
         
         .gjamTrueVest( pchains = chains$bgibbs[burnin:ng,],
                        true = beta,
@@ -7555,7 +7572,7 @@ smooth.na <- function(x,y){
         
         if(length(wp) > 1){
           
-          if(length(wp) < 100){
+          if( length(wp) < 100 ){
             .gjamTrueVest(rgibbsShort[,rindex[wp]],true=corSpec[cindex[wp]],
                           typeCode,allTypes,label=corLab,xlim=xlim,ylim=ylim,
                           colors=cols[m],legend=F,add=add)
@@ -7563,9 +7580,9 @@ smooth.na <- function(x,y){
             box <- T
             opt <- list(xlabel='true',
                         ylabel='estimate', fill='lightblue',
-                        nPerBin=length(wp)/10,box.col=cols[m], POINTS=T,
-                        MEDIAN=F,add=add, atx = c(-1, 0, 1), aty = c(-1, 0, 1))
-            .plotObsPred(corSpec[cindex[wp]],corMu[cindex[wp]],opt = opt)
+                        nPerBin=length(wp)/20, box.col=cols[m], POINTS=T,
+                        MEDIAN=F, add=add, atx = c(-1, 0, 1), aty = c(-1, 0, 1))
+            .plotObsPred(corSpec[cindex[wp]], corMu[cindex[wp]], opt = opt)
             if(!add)abline(0,1,lty=2)
           }
           add <- T
@@ -7819,18 +7836,27 @@ smooth.na <- function(x,y){
         sxx <- suppressWarnings( sqrt(y1[ww]) )
         syy <- suppressWarnings( sqrt(yp[ww]) )
         
-        opt  <- .getBinSqrt(y1, yp, nbin = 8)
+        opt  <- .getBinSqrt(y1, yp,  nbin = 8 )
         
         if( !typeNames[wk[1]] %in% c('PA','CAT') ){
           
-          xy  <- .gjamBaselineHist( sxx, bins = opt$atx, ylim = opt$ylim,
+          if(typeNames[wk[1]] == 'FC'){
+            at  <- ceiling( 10*max(y1, na.rm=T) )/10
+            opt$xtick <- opt$ytick <- opt$atx <- opt$aty <- seq(0, at, by = .1)
+            opt$labx <- opt$laby <- opt$atx
+            opt$xlim <- opt$ylim <- c(0, at)
+            sxx  <- y1[ww]
+            syy  <- yp[ww]
+          }
+          
+          xy  <- .gjamBaselineHist( y1 = sxx, bins = opt$atx, ylim = opt$ylim,
                                     nclass=length(opt$atx) )
           
           plot(xy[1,], xy[2,], col='tan', type='s', lwd=2, xlim=opt$xlim,
                ylim = opt$ylim, xlab='', ylab='', xaxt='n', yaxt='n')
           polygon(xy[1,],xy[2,],border='tan',col='wheat')
           
-          axis(1, at = opt$xtick, labels = opt$xlab)
+          axis(1, at = opt$xtick, labels = opt$labx)
           axis(2, at = opt$aty, labels = opt$laby, las=2)
           
           opt <- append(opt, list( xlabel='Observed', ylabel='Predicted', col='darkgreen') )
@@ -8179,7 +8205,7 @@ smooth.na <- function(x,y){
         sxx <- sqrt(y1)
         syy <- sqrt(yp)
 
-        opt  <- .getBinSqrt(y1, yp, nbin = 10)
+        opt  <- .getBinSqrt(y1, yp, nbin = 10 )
         
         if( !typeNames[wk[1]] %in% c('PA','CAT') ){
           
@@ -8860,7 +8886,7 @@ smooth.na <- function(x,y){
       vn  <- .splitNames(colnames(mat))$vnam[,1]
       
       .myBoxPlot( mat, tnam = vn, snames = mnames,
-                  traitColor, label=' ', LEG=T)
+                  traitColor, label='', LEG=F )
       
       .plotLabel(xnames[j],location='bottomright')  
       
@@ -9584,9 +9610,12 @@ smooth.na <- function(x,y){
     }
     
     if(TRAITS){
-      if(nrow(betaTraitMu) > 3){
+      
+      betaTraitXMu <- output$parameters$betaTraitXMu
         
-        bb <- betaTraitMu[-1,]
+      if(nrow(betaTraitXMu) > 3){
+        
+        bb <- betaTraitXMu[-1,]
         ord <- order(colSums(abs(bb)),decreasing=T)
         bb  <- bb[,ord]
         bl  <- bb[,ord]
@@ -9614,7 +9643,7 @@ smooth.na <- function(x,y){
                     leftClus=T, 
                     leftLab=T, ncluster = ncluster,
                     colCode1 = traitColor)
-        .clusterWithGrid(mat1=betaTraitMu[-1,], mat2=NULL, expand=1, opt)
+        .clusterWithGrid(mat1=betaTraitXMu[-1,], mat2=NULL, expand=1, opt)
         
         if(!SAVEPLOTS){
           readline('trait beta -- return to continue ')
@@ -9636,25 +9665,6 @@ smooth.na <- function(x,y){
 .gjamPrediction <- function(output, newdata, y2plot, PLOT, ylim, FULL, 
                             verbose = FALSE){
   
-  xnew <- ydataCond <- interBeta <- groupRandEff <- NULL
-  tiny  <- 1e-10
-  wHold <- phiHold <- ploHold <- sampleWhold <- NULL
-  COND <- RANDOM <- NEWX <- XCOND <- FALSE
-  
-  ng     <- output$modelList$ng
-  burnin <- output$modelList$burnin
-  
-  S <- SO <- S1 <- ncol(output$inputs$y)
-  Q <- length(output$inputs$xnames)
-  n <- nrow(output$inputs$y)
-  y <- yp <- output$inputs$y
-  x <- output$inputs$xStand
-  
-  xnames <- colnames(x)
-  ynames <- colnames(y)
-  
-  nsim <- 500
-  if('nsim' %in% names(newdata))nsim <- newdata$nsim
   
   if( is.null(newdata) ){  # if no new data, just extract predictions
     
@@ -9688,18 +9698,40 @@ smooth.na <- function(x,y){
                    ypredSe = output$modelSummary$ypredSd ) )
   }
   
+  xnew   <- ydataCond <- interBeta <- groupRandEff <- NULL
+  tiny   <- 1e-10
+  wHold  <- phiHold <- ploHold <- sampleWhold <- NULL
+  COND   <- RANDOM <- NEWX <- XCOND <- FALSE
   cindex <- NULL
   
+  ng     <- output$modelList$ng
+  burnin <- output$modelList$burnin
+  randByGroupMu  <- output$parameters$randByGroupMu  # S by G random groups, mean
+  randByGroupSe  <- output$parameters$randByGroupSe  # SE
+  groupIndex     <- output$parameters$groupIndex     # group index
+  rndEffMu       <- output$parameters$rndEffMu       # n by S from dimension reduction
+  rndEffSe       <- output$parameters$rndEffSe       # SE
+  ngroup         <- ncol(randByGroupMu)
+  if(!is.null(randByGroupMu))RANDOM <- TRUE
+  
+ 
+  Q <- length(output$inputs$xnames)
+  n <- nrow(output$inputs$y)
+  y <- yp <- output$inputs$y
+  x <- output$inputs$xStand
+  S <- SO <- S1 <- ncol(y)
+  xnames <- colnames(x)
+  ynames <- colnames(y)
   notOther <- output$inputs$notOther
   other    <- output$inputs$other
   SO       <- length(notOther)
-  
   otherpar <- output$modelList$reductList$otherpar
   censor   <- output$modelList$censor
   
   notStandard <- output$modelList$notStandard
   
-  
+  nsim <- 500
+  if('nsim' %in% names(newdata))nsim <- newdata$nsim
   if('xdata' %in% names(newdata))NEWX <- T
   if('ydataCond' %in% names(newdata))COND <- T
   if('xdata' %in% names(newdata) & 'ydataCond' %in% names(newdata))XCOND <- T
@@ -9709,6 +9741,7 @@ smooth.na <- function(x,y){
   inSamp <- 1:n
   
   REDUCT <- output$modelList$REDUCT
+  SAMEX  <- F                        # marginalize dim red random effects unless identical xdata
   sigmaerror <- NULL
   if(REDUCT){
     otherpar <- output$modelList$reductList$otherpar
@@ -9718,7 +9751,7 @@ smooth.na <- function(x,y){
     sigmaerror <- otherpar$sigmaerror
   }
   cuts <- output$parameters$cutMu
-  cuts <- cbind(-Inf,0,cuts,Inf)
+  if(!is.null(cuts))cuts <- cbind(-Inf,0,cuts,Inf)
   
   nfact      <- output$inputs$factorBeta$nfact
   isFactor   <- output$inputs$factorBeta$isFactor
@@ -9739,12 +9772,11 @@ smooth.na <- function(x,y){
   FCgroups  <- attr(typeNames,'FCgroups')
   CCgroups  <- attr(typeNames,'CCgroups')
   CATgroups <- attr(typeNames,'CATgroups')
+  condCols  <- numeric(0)
   
-  condCols <- numeric(0)
-  
-  standRows <- output$inputs$standRows
-  standMatSd  <- output$inputs$standMatSd
-  standX    <- output$inputs$standX
+  standRows  <- output$inputs$standRows
+  standMatSd <- output$inputs$standMatSd
+  standX     <- output$inputs$standX
   
   #factors are not standardized
   standRows  <- standRows[ !names(standRows) %in% facLevels ]
@@ -9762,6 +9794,13 @@ smooth.na <- function(x,y){
     xnew <- newdata$xdata
     nx   <- n <- nrow(xnew)
     colnames(xnew) <- .cleanNames(colnames(xnew))
+    
+    if( identical( output$inputs$xdata, xnew ) ){
+      SAMEX <- T  # predict with random effects
+      if(verbose)cat( paste('\nPredict same X, use any fitted random effects\n', sep = '') )
+    }else{
+      if(verbose)cat( paste('\nPredict different X, marginalize any fitted random effects\n', sep = '') )
+    }
     
     wna <- which(is.na(xnew),arr.ind=T)
     if(length(wna) > 0)
@@ -9815,6 +9854,7 @@ smooth.na <- function(x,y){
       standMatSd <- standMatSd[ names(standRows) ]
     }
     
+    # standardize xnew
     tmp <- .getStandX(xx = xnew, standRows, xmu = standMatMu, 
                       xsd = standMatSd, intMat = intMat)
     xnew <- tmp$xstand
@@ -9822,9 +9862,7 @@ smooth.na <- function(x,y){
     tmp <- .gjamXY(formula, xnew, yp, typeNames, 
                    notStandard = names(xnew), checkX = F, xscale = xscale,
                    verbose)
-    x  <- tmp$x             # not standardized
-    
-  #  beta <- output$parameters$betaMu
+    x    <- tmp$x                       # standardized
     beta <- output$parameters$betaStandXmu
     
     w  <- x%*%beta
@@ -9877,6 +9915,15 @@ smooth.na <- function(x,y){
           yp[,wk] <- round( sweep(yp[,wk],1,ysum,'*'), 0) 
         }
       }
+    }
+    
+    if(RANDOM){
+      # marginalize random effects variance from dimension reduction
+      avm   <- output$parameters$randGroupVarMu
+      avs   <- output$parameters$randGroupVarSe
+      lt    <- lower.tri(avm, diag = T)
+      wrand <- which(lt, arr.ind=T)
+      avg   <- matrix(0, S, S)
     }
     
     
@@ -9990,13 +10037,12 @@ smooth.na <- function(x,y){
   ptmp[,catCols]  <- 10
   
   # note: all are holdouts for newdata, no holdouts for COND
-  if( COND | XCOND ){
-    holdoutN <- 0
-    holdoutIndex <- NULL
-    ploHold <- phiHold <- NULL
-    plo[,-condCols] <- -ptmp[,-condCols]
-    phi[,-condCols] <- ptmp[,-condCols]
-  }else{
+  holdoutN <- 0
+  holdoutIndex <- NULL
+  ploHold <- phiHold <- NULL
+  plo[,-condCols] <- -ptmp[,-condCols]
+  phi[,-condCols] <- ptmp[,-condCols]
+  if( !COND & !XCOND & !SAMEX ){
     holdoutN <- n
     holdoutIndex <- c(1:n)
     plo <- -ptmp
@@ -10071,12 +10117,32 @@ smooth.na <- function(x,y){
     muw <- x%*%bg                                 
 
     if(REDUCT){
-      Z  <- matrix(output$chains$sgibbs[g,],N,r)
+      
       sigmaerror <- output$chains$sigErrGibbs[g]
-      K    <- output$chains$kgibbs[g,]
-      sg   <- .expandSigma(sigmaerror, S, Z = Z, K, REDUCT = T)
+      
+      if(SAMEX){                                    # use fitted random effects for dim reduct
+        rndEff <- rndEffMu + matrix( rnorm( n*S, 0, rndEffSe ), n, S )
+        sg     <- diag(sigmaerror, S)
+      }else{                                        # marginalize random effects
+        rndEff <- 0
+        Z  <- matrix(output$chains$sgibbs[g,],N,r)
+        K  <- output$chains$kgibbs[g,]
+        sg <- .expandSigma(sigmaerror, S, Z = Z, K, REDUCT = T)
+      }
+      
     } else {
       sg <- .expandSigma(output$chains$sgibbs[g,], S = S, REDUCT = F)
+    }
+    
+    if(RANDOM){
+      if(SAMEX){
+        randByGroup  <- rnorm( length(randByGroupMu), randByGroupMu, randByGroupSe )
+        groupRandEff <- t( matrix( randByGroup, S, ngroup ) )[groupIndex,]
+      }else{
+        avg[ wrand ] <- rnorm(nrow(wrand), avm[wrand], avs[wrand])
+        avg[ wrand[,c(2,1)] ] <- avg[ wrand ]
+        groupRandEff <- .rMVN(ngroup, 0, avg)[groupIndex,]  # observer
+      }
     }
     
     alpha <- .sqrtRootMatrix(bg,sg,DIVIDE=T)
@@ -10103,7 +10169,6 @@ smooth.na <- function(x,y){
       tmp   <- .gjamGetCuts(yg + 1,ordCols)
       cutLo <- tmp$cutLo
       cutHi <- tmp$cutHi
-      
       plo[,ordCols] <- cutg[cutLo]
       phi[,ordCols] <- cutg[cutHi]
     }
@@ -12798,10 +12863,10 @@ smooth.na <- function(x,y){
         w[-w0] <- y[-w0]          
         
         if(holdoutN < n){   # in-sample prediction, known RE
-          yPredict[,notCorCols] <- rnorm(n*SN,muf[,notCorCols],sqrt(sigmaerror))
+          yPredict[,notCorCols] <- rnorm(n*SN, muf[,notCorCols], sqrt(sigmaerror))
         }
         
-        if(holdoutN > 0){ # in-sample for holdouts to predict X out-of-sample
+        if( holdoutN > 0 ){ # in-sample for holdouts to predict X out-of-sample
           
           # in-sample with RE
           if(holdoutN < n){
@@ -12818,7 +12883,7 @@ smooth.na <- function(x,y){
         }
       }
       
-      if(length(corCols) > 0){   # corr scale
+      if( length(corCols) > 0 ){   # corr scale
         
         css  <- sg*0
         css[notOther,notOther]  <- .cov2Cor(sg[notOther,notOther])
@@ -12852,9 +12917,9 @@ smooth.na <- function(x,y){
       }
     }
       
-      if(!is.null(sampleW))w[sampleW == 0] <- y[sampleW == 0]
+      if( !is.null(sampleW) )w[sampleW == 0] <- y[sampleW == 0]
       
-      if(holdoutN > 0){   # in-sample to sample X out-out-sample
+      if( holdoutN > 0 ){   # in-sample to sample X out-out-sample
         wHold[sampleWhold == 0] <- y[holdoutIndex,][sampleWhold == 0]  
       }
       
@@ -12904,13 +12969,13 @@ smooth.na <- function(x,y){
                       typeCols = typeCols, notOther = notOther, wk = wk, 
                       sampW = sampleW[,wk])
         
-        if(holdoutN < n){
+        if( holdoutN < n ){
           
           tmp <- .gjamWLoopTypes( glist )  # if PA, yPredict on probit scale
           w[,wk]        <- tmp[[1]]
           yPredict[inSamp,wk] <- tmp[[2]][inSamp,]  # not holdouts
         }
-        if(holdoutN > 0){
+        if( holdoutN > 0 ){
           
           glist$wq <- wHold[,wk,drop=F]
           glist$yq <- yPredict[holdoutIndex, wk, drop=F]
