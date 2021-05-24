@@ -7,7 +7,7 @@
 }
 \usage{
 
-  gjamSensitivity(output, group=NULL, nsim=100)
+  gjamSensitivity(output, group=NULL, nsim=100, PERSPECIES = TRUE)
   
 }
 
@@ -17,6 +17,8 @@
   \item{group}{\code{character vector} of response-variable names from \code{output$inputs$y}.}
 
   \item{nsim}{number of samples from posterior distribution.}
+  
+  \item{PERSPECIES}{divide variance by number of species in the group}
 
 }
 
@@ -30,7 +32,7 @@ Sensitivity to predictors of entire reponse matrix or a subset of it, identified
 
 \value{
 
-Returns a \code{nsim} by predictor matrix of sensitivities to predictor variables.
+Returns a \code{nsim} by predictor matrix of sensitivities to predictor variables, evaluated by draws from the posterior. Because sensitivities may be compared across groups represented by different numbers of species, \code{PERSPECIES = TRUE} returns sensitivity on a per-species basis.
 
 }
 \examples{

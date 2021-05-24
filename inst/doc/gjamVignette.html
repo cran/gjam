@@ -12,7 +12,7 @@
 
 <meta name="author" content="James S. Clark" />
 
-<meta name="date" content="2021-04-11" />
+<meta name="date" content="2021-05-24" />
 
 <title>Generalized joint attribute modeling - gjam</title>
 
@@ -336,7 +336,7 @@ code > span.er { color: #a61717; background-color: #e3d2d2; }
 
 <h1 class="title toc-ignore">Generalized joint attribute modeling - gjam</h1>
 <h4 class="author"><a href="http://sites.nicholas.duke.edu/clarklab/">James S. Clark</a></h4>
-<h4 class="date">2021-04-11</h4>
+<h4 class="date">2021-05-24</h4>
 
 
 <div id="TOC">
@@ -398,7 +398,7 @@ code > span.er { color: #a61717; background-color: #e3d2d2; }
 </ul>
 </div>
 
-<p><strong>version 2.3.6</strong></p>
+<p><strong>version 2.3.7</strong></p>
 <p><strong>citation:</strong></p>
 <p><em>Clark, J.S., D. Nemergut, B. Seyednasrollah, P. Turner, and S. Zhang. 2017. Generalized joint attribute modeling for biodiversity analysis: Median-zero, multivariate, multifarious data, <a href="https://esajournals.onlinelibrary.wiley.com/doi/full/10.1002/ecm.1241">Ecological Monographs, 87, 34–56.</a></em></p>
 <p><a href="http://sites.nicholas.duke.edu/clarklab/code/">website</a></p>
@@ -1159,22 +1159,22 @@ code > span.er { color: #a61717; background-color: #e3d2d2; }
 <h2><span style="color:teal">categorical data</span></h2>
 <p>Categorical data have levels within groups. The levels are unordered. The columns in <code>ydata</code> that hold categorical responses are declared as <code>typeNames = &quot;CAT&quot;</code>. In observation vector <span class="math inline">\(\mathbf{y}_{i}\)</span> there are elements for one less than the number of factor levels. Suppose that observations are obtained on attributes of individual plants, each plant being an observation. The group <code>leaf</code> type might have four levels broadleaf decidious <code>bd</code>, needleleaf decidious <code>nd</code>, broadleaf evergreen <code>be</code>, and needleaf evergreen <code>ne</code>. A second group <code>xylem</code> anatomy might have three levels diffuse porous <code>dp</code>, ring porous <code>rp</code>, and tracheid <code>tr</code>. In both cases I assign the last class to be a reference class, <code>other</code>. Ten rows of the response matrix data might look like this:</p>
 <pre><code>##    leaf xylem
-## 1    bd other
-## 2    nd    dp
-## 3    bd    dp
-## 4    bd other
-## 5    bd    dp
-## 6 other other
-## 7    be    dp</code></pre>
+## 1 other other
+## 2    bd    dp
+## 3    be    dp
+## 4    be    rp
+## 5    be    dp
+## 6    nd other
+## 7    bd    dp</code></pre>
 <p>This <code>data.frame ydata</code> becomes this response matrix <code>y</code>:</p>
 <pre><code>##      leaf_bd leaf_nd leaf_be leaf_other xylem_dp xylem_rp xylem_other
-## [1,]       1       0       0          0        0        0           1
-## [2,]       0       1       0          0        1        0           0
-## [3,]       1       0       0          0        1        0           0
-## [4,]       1       0       0          0        0        0           1
-## [5,]       1       0       0          0        1        0           0
-## [6,]       0       0       0          1        0        0           1
-## [7,]       0       0       1          0        1        0           0</code></pre>
+## [1,]       0       0       0          1        0        0           1
+## [2,]       1       0       0          0        1        0           0
+## [3,]       0       0       1          0        1        0           0
+## [4,]       0       0       1          0        0        1           0
+## [5,]       0       0       1          0        1        0           0
+## [6,]       0       1       0          0        0        0           1
+## [7,]       1       0       0          0        1        0           0</code></pre>
 <p><code>gjam</code> expands the two groups into four and three columns in <code>y</code>, respectively. As for composition data there is one redundant column for each group. Here is an example with simulated data, having two categorical groups:</p>
 <div class="sourceCode" id="cb43"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb43-1"><a href="#cb43-1"></a>types &lt;-<span class="st"> </span><span class="kw">c</span>(<span class="st">&#39;CAT&#39;</span>,<span class="st">&#39;CAT&#39;</span>)</span>
 <span id="cb43-2"><a href="#cb43-2"></a>f     &lt;-<span class="st"> </span><span class="kw">gjamSimData</span>(<span class="dt">n=</span><span class="dv">2000</span>, <span class="dt">S =</span> <span class="kw">length</span>(types), <span class="dt">typeNames =</span> types)</span>

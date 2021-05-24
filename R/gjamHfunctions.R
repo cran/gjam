@@ -4064,9 +4064,11 @@ gjamFillMissingTimes <- function(xdata, ydata, edata, groupCol, timeCol,
        q1 = q1, lCont = lCont, dCont = dCont, eCont = eCont, findex = findex)
 }
 
-gjamSensitivity <- function(output, group=NULL, nsim=100){
+gjamSensitivity <- function(output, group=NULL, nsim=100, PERSPECIES = TRUE){
   
-  REDUCT <- F
+  # PERSPECIES - sensitivity on per-species basis, otherwise depends on no. of species
+  
+  REDUCT <- FALSE
   
   standRows   <- output$inputs$standRows
   factorBeta  <- output$inputs$factorBeta
@@ -4080,8 +4082,8 @@ gjamSensitivity <- function(output, group=NULL, nsim=100){
   beta        <- output$parameters$betaMu
   snames      <- colnames(y)
   xnames      <- colnames(x)
-  Q <- length(xnames)
-  S <-  length(snames)
+  Q  <- length(xnames)
+  S  <-  length(snames)
   S1 <- length(notOther)
   
   bgibbs    <- output$chains$bgibbs
@@ -4096,6 +4098,9 @@ gjamSensitivity <- function(output, group=NULL, nsim=100){
   
   jj <- sample(burnin:ng,nsim,replace=T)
   i  <- 1
+  
+  ns <- S
+  if( !is.null(group) )ns <- length(group)
   
   for(j in jj){
     
@@ -4122,8 +4127,11 @@ gjamSensitivity <- function(output, group=NULL, nsim=100){
     if(i == 1){
       fmat <- matrix(0,nsim,ncol(tmp$sens))
     }
-      
-    fmat[i,] <- diag(tmp$sens)
+    
+    fsens <- diag(tmp$sens)
+    if(PERSPECIES)fsens <- fsens/ns
+    
+    fmat[i,] <- fsens
     i <- i + 1
   }
   colnames(fmat) <- colnames(tmp$sens)
@@ -5387,7 +5395,7 @@ gjamSensitivity <- function(output, group=NULL, nsim=100){
           W[tindex[,2],] <- W[tindex[,2],] - w[tindex[,1],]
         }
         
-        SS   <- crossprod(W[tindex[,2],notOther] - muw[tindex[,2],notOther])
+        SS   <- crossprod(W[,notOther] - muw[,notOther])
         SI   <- solveRcpp(SS)
         
       }else{
@@ -6596,6 +6604,7 @@ designFull <- function( form, xdata ){
     
   }else{
     con <- which(colnames(beta) %in% conditional)
+    if( length(con) == 0 )stop( 'group must be in colnames(ydata)' )
     nc  <- c(1:SO)[-con]
     sg  <- sigma[con,con] - 
            sigma[con,nc]%*%solve(sigma[nc,nc])%*%sigma[nc,con]
@@ -7420,11 +7429,13 @@ smooth.na <- function(x,y){
   
   fMat <- output$parameters$fmatrix
   
-  if( 'factorBeta' %in% names(inputs) & !FACNAMES){
+  if( 'factorBeta' %in% names(inputs) & !FACNAMES ){
     fcnames <- names( inputs$factorBeta$factorList )
-    for(m in 1:length(fcnames)){
-      colnames(fMat) <- .replaceString( colnames( fMat ), fcnames[m], '' )
-      rownames(fMat) <- .replaceString( rownames( fMat ), fcnames[m], '' )
+    if(length(fcnames) > 0){
+      for(m in 1:length(fcnames)){
+        colnames(fMat) <- .replaceString( colnames( fMat ), fcnames[m], '' )
+        rownames(fMat) <- .replaceString( rownames( fMat ), fcnames[m], '' )
+      }
     }
   }
   
@@ -8201,7 +8212,6 @@ smooth.na <- function(x,y){
         yp <- ypredMu[,j]
         if( min(y1) == max(y1) | var(yp, na.rm=T) == 0)next
         
-        
         sxx <- sqrt(y1)
         syy <- sqrt(yp)
 
@@ -8239,13 +8249,13 @@ smooth.na <- function(x,y){
                xlab='Observed',ylab='', xaxt='n',yaxt='n')
           axis(1, at = atx + 1, labels = atx )
           axis(2, at = aty, labels = atx )
-          polygon(x11 + 1,y11,border='tan',col='wheat')
+          polygon(x11 + 1,y11, border = specColor[j], col = boxCol[j])
           
           stats <- tapply( as.vector(yp), as.vector(y1), quantile, pnorm(c(-1.96,-1,0,1,1.96)) )
           stats <- matrix( unlist(stats), ncol = 2 )
           tmp <- .boxplotQuant( yp ~ y1, stats = stats, xaxt='n', yaxt = 'n', outline=F, 
-                                border='darkgreen', whiskcol='darkgreen',
-                                boxfill= .getColor('darkgreen', .6), 
+                                border=specColor[j], whiskcol=specColor[j],
+                                boxfill= boxCol[j], 
                                 pars = list(boxwex = 0.1, ylim=range(aty)), lty=1,
                                 add = T)
           
@@ -8330,6 +8340,7 @@ smooth.na <- function(x,y){
                    xlimit=xlimit,ylimit=ylimit,breaks=breaks,
                    wide=wide,LOG=LOG,
                    fill='grey',
+                   col = traitColor[j],
                    POINTS=F,MEDIAN=MEDIAN,add=add )
       
       tmp <- .plotObsPred(td, tjj, opt = opt)
@@ -8357,68 +8368,72 @@ smooth.na <- function(x,y){
       fSensGibbs <- matrix(fSensGibbs)
       colnames(fSensGibbs) <- xnames[-1]
     }
-    if( 'factorBeta' %in% names(inputs) & !FACNAMES){
+    if( 'factorBeta' %in% names(inputs) & !FACNAMES ){
       fcnames <- names( inputs$factorBeta$factorList )
-      for(m in 1:length(fcnames)){
-        colnames(fSensGibbs) <- .replaceString( colnames( fSensGibbs ), fcnames[m], '' )
-      }
-    }
-    
-    
-    wc <- c(1:ncol(fSensGibbs))
-    wx <- grep(':',colnames(fSensGibbs))
-    wx <- c(wx, grep('^2',colnames(fSensGibbs), fixed=T) )
-    if(length(wx) > 0)wc <- wc[-wx]
-    
-    wx <- grep('intercept',colnames(fSensGibbs))
-    if(length(wx) > 0)wc <- wc[-wx]
-    wc <- c(1:ncol(fSensGibbs))
-    
-    tmp <- apply(fSensGibbs,2,range)
-    wx <- which(tmp[1,] == tmp[2,] | tmp[2,] < 1e-12)
-    if(length(wx) > 0)wc <- wc[-wx]
-    
-    if(length(wc) > 0){
-      
-      if(SAVEPLOTS)pdf( file=.outFile(outFolder,'sensitivity.pdf') ) # start plot
-      
-      xx   <- fSensGibbs[,wc,drop=F]
-      tcol <- rep('black',ncol(xx))
-      names(tcol) <- colnames(xx)
-      
-      if(nfact > 0){
-        
-        mm <- max(nfact,2)
-        useCols <- colorRampPalette(c('brown','orange','darkblue'))(mm)
-        
-        for(i in 1:nfact){
-          im <- which(colnames(xx) %in% rownames(factorBeta$contrast[[i]]))
-          tcol[im] <- useCols[i]
+      if(length(fcnames) > 0){
+        for(m in 1:length(fcnames)){
+          colnames(fSensGibbs) <- .replaceString( colnames( fSensGibbs ), fcnames[m], '' )
         }
       }
-      
-      par(mfrow=c(1,1),bty='n', oma=oma, mar=mar, tcl= tcl, mgp=mgp)
-      if(TIME)par(mfrow=c(1,2),bty='n', oma=oma, mar=mar, tcl= tcl, mgp=mgp)
-      
-      ord  <- order( colMeans(xx) )
-      ylim <- c( quantile(xx,.002), 5*quantile(xx,.99))
-      tmp <- .boxplotQuant( xx[,ord, drop=F], yaxt='n',outline=F, 
-                            border=tcol[ord], whiskcol=tcol[ord],
-                            boxfill=.getColor(tcol[ord],.4), 
-                            horizontal = TRUE,
-                            pars = list(boxwex = 0.5, ylim=ylim), lty=1, log='x')
-      sensLab   <- expression( paste('Sensitivity ',hat(bold(F))  ))
-      mtext(sensLab,side=1,line=3)
-      
-      dy <- .05*diff(par()$yaxp[1:2])
-      text(dy + tmp$stats[5,],1:length(wc), tmp$names, pos=4,col=tcol[ord], cex=.8)
-      
     }
     
-    if(!SAVEPLOTS){
-      readline('sensitivity over full model -- return to continue ')
-    } else { 
-      dev.off()
+    if( ncol(fSensGibbs) > 1){
+      
+      wc <- c(1:ncol(fSensGibbs))
+      wx <- grep(':',colnames(fSensGibbs))
+      wx <- c(wx, grep('^2',colnames(fSensGibbs), fixed=T) )
+      if(length(wx) > 0)wc <- wc[-wx]
+      
+      wx <- grep('intercept',colnames(fSensGibbs))
+      if(length(wx) > 0)wc <- wc[-wx]
+      wc <- c(1:ncol(fSensGibbs))
+      
+      tmp <- apply(fSensGibbs,2,range)
+      wx <- which(tmp[1,] == tmp[2,] | tmp[2,] < 1e-12)
+      if(length(wx) > 0)wc <- wc[-wx]
+      
+      if(length(wc) > 0){
+        
+        if(SAVEPLOTS)pdf( file=.outFile(outFolder,'sensitivity.pdf') ) # start plot
+        
+        xx   <- fSensGibbs[,wc,drop=F]
+        tcol <- rep('black',ncol(xx))
+        names(tcol) <- colnames(xx)
+        
+        if(nfact > 0){
+          
+          mm <- max(nfact,2)
+          useCols <- colorRampPalette(c('brown','orange','darkblue'))(mm)
+          
+          for(i in 1:nfact){
+            im <- which(colnames(xx) %in% rownames(factorBeta$contrast[[i]]))
+            tcol[im] <- useCols[i]
+          }
+        }
+        
+        par(mfrow=c(1,1),bty='n', oma=oma, mar=mar, tcl= tcl, mgp=mgp)
+        if(TIME)par(mfrow=c(1,2),bty='n', oma=oma, mar=mar, tcl= tcl, mgp=mgp)
+        
+        ord  <- order( colMeans(xx) )
+        ylim <- c( quantile(xx,.002), 5*quantile(xx,.99))
+        tmp <- .boxplotQuant( xx[,ord, drop=F], yaxt='n',outline=F, 
+                              border=tcol[ord], whiskcol=tcol[ord],
+                              boxfill=.getColor(tcol[ord],.4), 
+                              horizontal = TRUE,
+                              pars = list(boxwex = 0.5, ylim=ylim), lty=1, log='x')
+        sensLab   <- expression( paste('Sensitivity ',hat(bold(F))  ))
+        mtext(sensLab,side=1,line=3)
+        
+        dy <- .05*diff(par()$yaxp[1:2])
+        text(dy + tmp$stats[5,],1:length(wc), tmp$names, pos=4,col=tcol[ord], cex=.8)
+        
+      }
+      
+      if(!SAVEPLOTS){
+        readline('sensitivity over full model -- return to continue ')
+      } else { 
+        dev.off()
+      }
     }
   }
   
@@ -8735,6 +8750,12 @@ smooth.na <- function(x,y){
                     specColor, label=fnames[j], LEG=F)
         mtext(side=2,'Coefficient', line=2)
         
+        if( !is.null(names(specColor)) ){
+          lf <- sort( unique(names(specColor)) )
+          cc <- specColor[lf]
+          legend('bottomright',names(cc), text.col = cc, bty='n')
+        }
+        
         if(!SAVEPLOTS){
           readline('beta standardized for W/X, 95% posterior -- return to continue ')
         } else {
@@ -8853,36 +8874,49 @@ smooth.na <- function(x,y){
   if(TRAITS){
     
     M  <- nrow(specByTrait)
-    nc     <- 0
-    vnam   <- .splitNames(colnames(chains$bTraitFacGibbs))$vnam
+  #  nc     <- 0
+  #  vnam   <- .splitNames(colnames(chains$bTraitFacGibbs))$vnam
+    
+    bt <- chains$bTraitFacGibbs
+    wi <- grep( ':', colnames(bt) )
+    if(length(wi) > 0)bt <- bt[,-wi] # remove interactions
+    
+    vnam <- columnSplit( colnames(bt), '_')
     mnames <- colnames(specByTrait)
     
-    if( length(is.finite(match(mnames,vnam[,1]))) > 0 )nc <- 2
-    if( length(is.finite(match(mnames,vnam[,2]))) > 0 )nc <- 1
+  #  if( length(is.finite(match(mnames,vnam[,1]))) > 0 )nc <- 2
+  #  if( length(is.finite(match(mnames,vnam[,2]))) > 0 )nc <- 1
     
-    ix <- 1
-    if(nc == 1)ix <- 2
-    xnam <- vnam[,ix]
-    vnam <- vnam[,nc]
+  #  ix <- 1
+  #  if(nc == 1)ix <- 2
+  #  xnam <- vnam[,ix]
+  #  vnam <- vnam[,nc]
+    
+    xnam <- vnam[,2]
+    vnam <- vnam[,1]
     
     if(length(traitColor) == 1)traitColor <- rep(traitColor, M)
     tboxCol <- .getColor(traitColor,.4)
     
     traitSd <- apply(plotByTrait,2,sd,na.rm=T)
-    traitSd <- matrix(traitSd,nrow(chains$bTraitGibbs),length(traitSd),byrow=T)
+   # traitSd <- matrix(traitSd,nrow(bt),length(traitSd),byrow=T)
     
     for(j in 2:length(xnames)){
       
       wc <- which(xnam == xnames[j])
       if(length(wc) < 2)next
       
+      mt <- match( names(traitSd), vnam[wc] )
+      mx <- which( names(xSd) == xnames[j] )
+      
       if(SAVEPLOTS)pdf( file=.outFile(outFolder,'traits.pdf') ) # start plot
       
       par(mfrow=c(1,1),bty='n', oma=oma, mar=mar, tcl= tcl, mgp=mgp)
       
-      if(length(wc) > 100)wc <- sample(wc,100)
+      tsd <- matrix(traitSd[mt], nrow(bt), length(mt), byrow=T)
       
-      mat <- chains$bTraitGibbs[,wc]*xSd[j]/traitSd
+      mat <- bt[,wc]*xSd[mx]/tsd
+      
       vn  <- .splitNames(colnames(mat))$vnam[,1]
       
       .myBoxPlot( mat, tnam = vn, snames = mnames,
@@ -9611,7 +9645,7 @@ smooth.na <- function(x,y){
     
     if(TRAITS){
       
-      betaTraitXMu <- output$parameters$betaTraitXMu
+      betaTraitXMu <- output$parameters$betaTraitXWmu
         
       if(nrow(betaTraitXMu) > 3){
         
@@ -13624,12 +13658,12 @@ smooth.na <- function(x,y){
   
   ###################### neither ordinal nor factors (FC)
   
-  wf   <- which(!tTypes %in% c('OC','CAT')) 
+  wf   <- which( !tTypes %in% c('OC','CAT') ) 
 
   if(length(wf) > 0){
     newTypes <- tTypes[wf]
-    ttt <- sbyt[y2t,wf, drop=F]
-    tmat <- ywt%*%as.matrix(sbyt[y2t,wf, drop=F])
+    ttt <- sbyt[ y2t, wf, drop=F]
+    tmat <- ywt%*%as.matrix( sbyt[y2t, wf, drop=F] )
   }
   
   ###################### ordinal classes
@@ -13661,13 +13695,13 @@ smooth.na <- function(x,y){
   
   if(length(wf) > 0){
     
-    xx <- sbyt[,wf,drop=F]
+    xx <- sbyt[,wf,drop=F] 
     xc <- numeric(0)
     kg <- 0
     
     for(kk in 1:length(wf)){
       
-      xkk  <- xx[[kk]]            #rare type is reference
+      xkk  <- xx[,kk]            # rare type is reference
       xtab <- table(xkk)
       if(length(xtab) == 1){
         stop( paste('CAT trait _',names(xx)[kk],
