@@ -478,8 +478,13 @@ gjamFillMissingTimes <- function(xdata, ydata, edata, groupCol, timeCol,
   wna <- which( is.na(edata) | edata == 0, arr.ind=T )
   if(length(wna) > 0){
     nna <- nrow(wna)
-    pna <- signif( nna/length(edata) )
-    edata[wna] <- missingEffort
+    pna <- signif( nna/length(as.vector(edata)) )
+    
+    me <- apply(edata, 2, quantile, .5, na.rm=T )      # modal effort
+    mm <- me[ wna[,2] ]
+    mm[ mm == 0 ] <- missingEffort
+    
+    edata[wna] <- mm*missingEffort
     print( paste( nna, ' missing values (', pna, '%) in edata', sep='') )
   }
 
@@ -3428,7 +3433,7 @@ gjamFillMissingTimes <- function(xdata, ydata, edata, groupCol, timeCol,
 }
 
 .xpredSetup <- function(Y, xx, bgg, isNonLinX, factorObject, intMat, standMatSd, standMatMu,
-                        notOther, notStandard){
+                        notOther, notStandard, UNSTAND){
   
   isFactor   <- factorObject$isFactor
   factorList <- factorObject$factorList
@@ -3459,7 +3464,7 @@ gjamFillMissingTimes <- function(xdata, ydata, edata, groupCol, timeCol,
   qx <- c( 1, ii, i2)
   qx <- c(1:Q)[-qx]
   
-  bx <- solve( crossprod(xx[,qx,drop=F]) )%*%crossprod(xx[,qx,drop=F], Y[,notOther])
+  bx <- solveRcpp( crossprod(xx[,qx,drop=F]) )%*%crossprod(xx[,qx,drop=F], Y[,notOther])
   
   cx <- crossprod(t(bx))
   if(length(cx) == 1){
@@ -3476,9 +3481,22 @@ gjamFillMissingTimes <- function(xdata, ydata, edata, groupCol, timeCol,
   xk[,scol]  <- sweep(xk[,scol,drop=F],2,apply(xk[,scol,drop=F],2,sd),'/')
   xpred[,qx] <- xk
   
-  xpred[xpred < -3] <- -3
-  xpred[xpred > 3] <- 3
+  xmu <- apply(xx, 2, sd)
+  xse <- apply(xx, 2, sd)
+  
+  propx <- xse/10
+  
+  lo <- xmu - 1*xse
+  hi <- xmu + 1*xse
+  
+  xl <- matrix( lo, nrow(xpred), ncol(xpred), byrow=T)
+  xh <- matrix( hi, nrow(xpred), ncol(xpred), byrow=T)
+  
+  xpred[xpred < xl] <- xl[xpred < xl]
+  xpred[xpred > xh] <- xh[xpred > xh]
   xpred[!is.finite(xpred)] <- 0
+  
+  rm(xl, xh)
   
   if(length(intMat) > 0){
     for(k in 1:nrow(intMat)){
@@ -3513,7 +3531,7 @@ gjamFillMissingTimes <- function(xdata, ydata, edata, groupCol, timeCol,
   }
   
   lox       <- apply(xx,2 ,min)
-  hix       <- apply(xx,2,max)
+  hix       <- apply(xx,2, max)
   
   lox[isFactor] <- -3
   hix[isFactor] <- 3
@@ -3522,16 +3540,19 @@ gjamFillMissingTimes <- function(xdata, ydata, edata, groupCol, timeCol,
     hix[intMat[,1]] <- 3
   }
   
-  ws        <- which(notStandard %in% xpnames)
-  if(length(ws) == 0){
-    notStandard <- NULL
-  } else {
-    notStandard <- notStandard[ws]
-    lox[notStandard] <- standMatMu[notStandard,1] - 3*standMatSd[notStandard,1]
-    hix[notStandard] <- standMatMu[notStandard,1] + 3*standMatSd[notStandard,1]
+  if( !UNSTAND ){
+    ws        <- which(notStandard %in% xpnames)
+    if(length(ws) == 0){
+      notStandard <- NULL
+    } else {
+      notStandard <- notStandard[ws]
+      lox[notStandard] <- standMatMu[notStandard,1] - 3*standMatSd[notStandard,1]
+      hix[notStandard] <- standMatMu[notStandard,1] + 3*standMatSd[notStandard,1]
+    }
   }
   
-  list(linFactor = linFactor, xpred = xpred, px = px, lox = lox, hix = hix)
+  list(linFactor = linFactor, xpred = xpred, px = px, 
+       propx = propx, lox = lox, hix = hix)
 }
 
 .blockDiag <- function(mat1,mat2){
@@ -3883,6 +3904,8 @@ gjamFillMissingTimes <- function(xdata, ydata, edata, groupCol, timeCol,
     Rmat[!is.finite(Rmat)] <- 0
   }
   
+ # tindex <- tindex[!tindex[, 2] %in% timeLast, ]
+  
   list(Rmat = Rmat, Rpattern = Rpattern, wL = wL, gindex = gindex,
        Vmat = Vmat, Rrows = Rrows, loRmat = loRmat, hiRmat = hiRmat,
        Arows = Arows, Amat = Amat, Apattern = Apattern, wA = wA, 
@@ -3890,7 +3913,7 @@ gjamFillMissingTimes <- function(xdata, ydata, edata, groupCol, timeCol,
        aindex = aindex, Brows = Brows, bg = bg, Bpattern = Bpattern, wB = wB, 
        loB = loB, hiB = hiB, zB = zB, zA = zA, zR = zR, timeZero = timeZero, 
        timeLast = timeLast, maxTime = maxTime, inSamples = inSamples, 
-       tindex = tindex[,1:2], i1 = i1, i2 = i2)
+       tindex = tindex, i1 = i1, i2 = i2)
 }
 
 .checkYfactor <- function(ydata, typeNames){
@@ -4211,7 +4234,8 @@ gjamSensitivity <- function(output, group=NULL, nsim=100, PERSPECIES = TRUE){
   burnin <- 500
   BPRIOR <- LPRIOR <- REDUCT <- TRAITS <- FULL <- FALSE
   termB <- termR <- termA <- FALSE
-  PREDICTX <- T
+  UNSTAND <- FALSE                                       # do not standardize X
+  PREDICTX <- TRUE
   rhoPrior <- betaPrior <- alphaPrior <- NULL
   
   RANDOM <- FALSE              # random group intercepts
@@ -4239,7 +4263,7 @@ gjamSensitivity <- function(output, group=NULL, nsim=100, PERSPECIES = TRUE){
   }
   
   if(alpha.DP == 1)
-    stop('multivariate model: at least 2 columns needed in ydata')
+    stop('this is a multivariate model: at least 2 columns needed in ydata')
   
   for(k in 1:length(modelList))assign( names(modelList)[k], modelList[[k]] )
   
@@ -4339,6 +4363,7 @@ gjamSensitivity <- function(output, group=NULL, nsim=100, PERSPECIES = TRUE){
   }
   
   if(burnin >= ng) stop( 'burnin must be < no. MCMC steps, ng' )
+  
   if('censor' %in% names(modelList)){
     for(k in 1:length(censor)){
       if( nrow(censor[[k]]$partition) != 3 )
@@ -4418,17 +4443,22 @@ gjamSensitivity <- function(output, group=NULL, nsim=100, PERSPECIES = TRUE){
   typeCode <- tmp$TYPES[typeCols]
   allTypes <- sort(unique(typeCols))
   
+  if( UNSTAND )notStandard <- colnames(xdata)
+  
+  
   tmp <- .gjamXY(formula, xdata, y, typeNames, notStandard, verbose) # all terms
   x      <- tmp$x; y <- tmp$y; snames <- tmp$snames
   xnames <- tmp$xnames
   interBeta   <- tmp$interaction 
   factorBeta  <- tmp$factorAll
-  designTable <- tmp$designTable;      xscale <- tmp$xscale
+  designTable <- tmp$designTable
+  xscale      <- tmp$xscale
   predXcols   <- tmp$predXcols
-  standMatSd  <- tmp$standMatSd; standMatMu <- tmp$standMatMu  
-  standRows   <- tmp$standRows
+  standMatSd  <- tmp$standMatSd
+  standMatMu  <- tmp$standMatMu  
   xdataNames  <- tmp$xdataNames
-  notStandard <- tmp$notStandard[tmp$notStandard %in% xnames]
+  standRows   <- tmp$standRows
+  if( UNSTAND )standRows <- NULL
   
   factorRho <- interRho <- NULL
   xlnames   <- character(0)
@@ -4443,7 +4473,7 @@ gjamSensitivity <- function(output, group=NULL, nsim=100, PERSPECIES = TRUE){
     designTable <- list(beta = tmp$designTable)
     
     standMatSdB  <- tmp$standMatSd
-    standMatMuB <- tmp$standMatMu
+    standMatMuB  <- tmp$standMatMu
     standRowsB   <- tmp$standRows 
     notStandardB <- tmp$notStandard
   }
@@ -4767,13 +4797,13 @@ gjamSensitivity <- function(output, group=NULL, nsim=100, PERSPECIES = TRUE){
   
   muw <- w
   
-  if(!TIME){
+  if( !TIME ){
     
-    Y <- w[inSamp,notOther]
+    Y   <- w[inSamp,notOther]
     sig <- sg[notOther,notOther]
     
     if(REDUCT){
-      Y <- Y - rndEff[inSamp,notOther]
+      Y   <- Y - rndEff[inSamp,notOther]
       sig <- sigmaerror
     }
     
@@ -4798,7 +4828,7 @@ gjamSensitivity <- function(output, group=NULL, nsim=100, PERSPECIES = TRUE){
     }
     
     Y <- w - xr
-    Y[tindex[,2],] <- Y[tindex[,2],] - w[tindex[,1],]
+    Y[tindex[,1],] <- Y[tindex[,2],] - w[tindex[,1],]
     
     if(REDUCT){
       sig <- sigmaerror
@@ -4807,7 +4837,7 @@ gjamSensitivity <- function(output, group=NULL, nsim=100, PERSPECIES = TRUE){
     }
     if(termB){
       
-      bg[,notOther] <- updateBeta(X = x[tindex[,2],xnames], Y = Y[tindex[,2],notOther], 
+      bg[,notOther] <- updateBeta(X = x[tindex[,1],xnames], Y = Y[tindex[,1],notOther], 
                                   sig = sig, beta = bg[,notOther], 
                                   PRIOR = BPRIOR,
                                   lo = loB[,notOther], hi = hiB[,notOther], 
@@ -4858,6 +4888,7 @@ gjamSensitivity <- function(output, group=NULL, nsim=100, PERSPECIES = TRUE){
   if( 'random' %in% names(modelList)) RANDOM <- TRUE
   
   if(!TIME){
+    
     .updateW <- .wWrapper(REDUCT, RANDOM, S, effMat, corCols, notCorCols, typeNames, 
                           typeFull, typeCols, 
                           allTypes, holdoutN, holdoutIndex, censor, 
@@ -4870,11 +4901,12 @@ gjamSensitivity <- function(output, group=NULL, nsim=100, PERSPECIES = TRUE){
                               uindex, notOther, n, S, REDUCT, RANDOM, TIME,
                               termB, termR, termA, corCols)
     Y <- w #other needed in .xpredSetup
+    Y[ tindex[,1],] <- Y[ tindex[,2],] - w[ tindex[,1],]
     
     if(termA) Y <- Y - mua
     if(termR) Y <- Y -  mug
     if(RANDOM)Y <- Y - rndEff
-    Y[ tindex[,2],] <- Y[ tindex[,2],] - w[ tindex[,1],]
+    
   }
   
   ycount <- rowSums(y)
@@ -4895,9 +4927,10 @@ gjamSensitivity <- function(output, group=NULL, nsim=100, PERSPECIES = TRUE){
                      factorObject = factorBeta, 
                      intMat = factorBeta$intMat, 
                      standMatSd = standMatSd, standMatMu = standMatMu, 
-                     notOther, notStandard) 
+                     notOther, notStandard, UNSTAND) 
   factorBeta$linFactor <- tmp$linFactor; xpred <- tmp$xpred; px <- tmp$px
   lox <- tmp$lox; hix <- tmp$hix
+  propx <- tmp$propx
   
   priorXIV  <- diag(1e-5,ncol(x))
   priorX    <- colMeans(x)
@@ -4966,7 +4999,7 @@ gjamSensitivity <- function(output, group=NULL, nsim=100, PERSPECIES = TRUE){
     }
   }
   
-  if(termB & TIME){
+  if( termB & TIME ){
     
     tmp <- .xpredSetup(Y, x, bg, isNonLinX = interBeta$isNonLinX, 
                        factorObject = factorBeta, 
@@ -5013,13 +5046,13 @@ gjamSensitivity <- function(output, group=NULL, nsim=100, PERSPECIES = TRUE){
   ############  contrasts, predict F matrix
   
   
-  if(termB){
+  if( termB ){
     tmp <- .setupFactors(xdata, xnames, factorBeta)
     ff  <- factorBeta[names(factorBeta) != 'factorList']
     factorBeta <- append(ff,tmp)
   }
   
-  if(termR){
+  if( termR ){
     tmp <- .setupFactors(xdata, xlnames, factorRho)
     ff  <- factorRho[names(factorRho) != 'factorList']
     factorRho <- append(ff,tmp)
@@ -5046,7 +5079,7 @@ gjamSensitivity <- function(output, group=NULL, nsim=100, PERSPECIES = TRUE){
   fmat <- factorBeta$fmat
   fnames  <- rownames( factorBeta$lCont )                # variable names for centering
   
-  if(termB & !TIME){   # factors in all
+  if( termB & !TIME ){   # factors in all
     
     facNames <- names(factorBeta$factorList)
     fl <- character(0)
@@ -5057,7 +5090,7 @@ gjamSensitivity <- function(output, group=NULL, nsim=100, PERSPECIES = TRUE){
     }
   }
   
-  if(termB & TIME){   # factors in all
+  if( termB & TIME ){   # factors in all
     
     fmat <- factorBeta$fmat
     fnames  <- rownames( factorBeta$lCont )  
@@ -5075,7 +5108,7 @@ gjamSensitivity <- function(output, group=NULL, nsim=100, PERSPECIES = TRUE){
       attr(bg, 'factorLevels') <- fl
     }
   }
-  if(termR){   # factors in all
+  if( termR ){   # factors in all
     
     facNames <- names(factorRho$factorList)
     if(!is.null(facNames)){
@@ -5098,7 +5131,7 @@ gjamSensitivity <- function(output, group=NULL, nsim=100, PERSPECIES = TRUE){
     RmatU <- Rmat
   }
   
-  if(termA){
+  if( termA ){
     essA <- ess*0
     asens1 <- asens2 <- rep(0, S)
   }
@@ -5151,7 +5184,7 @@ gjamSensitivity <- function(output, group=NULL, nsim=100, PERSPECIES = TRUE){
     colnames(mgibbs) <- .multivarChainNames(tnames,tnames)
   }
   
-  if(termB){
+  if( termB ){
     
     fbnames <- colnames( factorBeta$dCont )
     bf <- .multivarChainNames( fbnames, snames[notOther] )
@@ -5170,7 +5203,7 @@ gjamSensitivity <- function(output, group=NULL, nsim=100, PERSPECIES = TRUE){
     covE <- cov( x[,xnames]%*%factorBeta$dCont[xnames,fbnames] )  # note: x is standardized
   }
   
-  if(TIME){
+  if( TIME ){
     
     yy <- y*0
     yy[rowInserts,] <- 1
@@ -5214,7 +5247,7 @@ gjamSensitivity <- function(output, group=NULL, nsim=100, PERSPECIES = TRUE){
   S2U      <- tmp$S2U                    # S2U%*%x%*%bg
   xUnstand <- tmp$xu
   
-  if(ncol(x) == 1)PREDICTX <- FALSE
+  if( Q == 1 )PREDICTX <- FALSE
   
   if(TIME & termB){
     tmp <- .getUnstandX(x[,xnames], standRowsB, standMatMuB[,1],standMatSdB[,1],
@@ -5319,7 +5352,7 @@ gjamSensitivity <- function(output, group=NULL, nsim=100, PERSPECIES = TRUE){
       
     } else {
         
-     if(!TIME){
+     if( !TIME ){
         
         Y <- w[inSamp,notOther]
         if(RANDOM)Y <- Y - groupRandEff[inSamp,notOther]
@@ -5330,7 +5363,7 @@ gjamSensitivity <- function(output, group=NULL, nsim=100, PERSPECIES = TRUE){
         
       }else{
         
-        muw <- mua <- mug <- w*0
+        muw <- mub <- mua <- mug <- w*0
         
         if(termR)mug  <- Vmat%*%Rmat
         if(termA)mua  <- Umat%*%Amat 
@@ -5338,52 +5371,55 @@ gjamSensitivity <- function(output, group=NULL, nsim=100, PERSPECIES = TRUE){
         if(termB){
           
           Y   <- w[,notOther] 
-          Y[tindex[,2],] <- Y[tindex[,2],] - w[tindex[,1],notOther]
+          Y[tindex[,1],] <- w[tindex[,2],] - w[tindex[,1],notOther]
           if(termA) Y <- Y - mua[,notOther] 
           if(termR) Y <- Y - mug[,notOther]
           if(RANDOM)Y <- Y - groupRandEff[,notOther]
           
-          bg[,notOther] <- updateBeta(X = x[tindex[,2],xnames], Y = Y[tindex[,2],], 
+          bg[,notOther] <- updateBeta(X = x[tindex[,1],xnames], Y = Y[tindex[,1],], 
                                       sig = sg[notOther,notOther], beta = bg[,notOther],
                                       PRIOR = BPRIOR,
                                       rows = Brows, pattern = Bpattern,
                                       lo=loB[,notOther], hi=hiB[,notOther], sinv = sinv, wF = wB)
-          mub <- x[,xnames]%*%bg#[,notOther]
+          mub[tindex[,1],] <- x[tindex[,1],xnames]%*%bg
+          mub[timeLast,] <- x[drop=F, timeLast,xnames]%*%bg
           muw <- muw + mub
         }
         
         if(termR){
           
           Y   <- w[,notOther] 
-          Y[tindex[,2],] <- Y[tindex[,2],] - w[tindex[,1],notOther]
+          Y[tindex[,1],] <- Y[tindex[,2],] - w[tindex[,1],notOther]
           if(termA) Y <- Y - mua[,notOther] 
           if(termB) Y <- Y - mub[,notOther]
           if(RANDOM)Y <- Y - groupRandEff[,notOther]
           
-          Rmat[,notOther] <- updateBeta(X = Vmat[tindex[,2],], 
-                                        Y = Y[tindex[,2],notOther], sig=sg[notOther,notOther], 
+          Rmat[,notOther] <- updateBeta(X = Vmat[tindex[,1],], Y = Y[tindex[,1],notOther], 
+                                        sig=sg[notOther,notOther], 
                                         beta = Rmat[,notOther],
                                         PRIOR = LPRIOR,
                                         rows = Rrows, pattern = Rpattern, 
                                         lo = loRmat, hi = hiRmat, sinv = sinv, wF = wL)
-          mug <- Vmat%*%Rmat
+          mug[tindex[,1],] <- Vmat[tindex[,1],]%*%Rmat
+          mug[timeLast,] <- Vmat[drop=F, timeLast,]%*%Rmat
           muw <- muw + mug
         }
         
         if(termA){
           
           Y   <- w[,notOther] 
-          Y[tindex[,2],] <- Y[tindex[,2],] - w[tindex[,1],]
+          Y[tindex[,1],] <- Y[tindex[,2],] - w[tindex[,1],]
           if(termR) Y <- Y - mug[,notOther] 
           if(termB) Y <- Y - mub[,notOther]
           if(RANDOM)Y <- Y - groupRandEff[,notOther]
           
-          Amat[,notOther] <- updateBeta(X = Umat[tindex[,2],], Y = Y[tindex[,2],], 
+          Amat[,notOther] <- updateBeta(X = Umat[tindex[,1],], Y = Y[tindex[,1],], 
                                         sig=sg[notOther,notOther], 
                                         beta = Amat[,notOther], PRIOR = TRUE,
                                         lo=loAmat[,notOther], hi=hiAmat[,notOther], 
                                         rows = Arows, pattern = Apattern, sinv = sinv, wF = wA)
-          mua <- Umat%*%Amat
+          mua[tindex[,1],] <- Umat[tindex[,1],]%*%Amat
+          mua[timeLast,] <- Umat[drop=F, timeLast,]%*%Amat
           muw[,notOther] <- muw[,notOther] + mua[,notOther]
         }
       }
@@ -5392,17 +5428,19 @@ gjamSensitivity <- function(output, group=NULL, nsim=100, PERSPECIES = TRUE){
         
         W    <- w
         if(TIME){
-          W[tindex[,2],] <- W[tindex[,2],] - w[tindex[,1],]
+          W[tindex[,1],] <- W[tindex[,2],] - w[tindex[,1],]
+          SS   <- crossprod(W[tindex[,1],notOther] - muw[tindex[,1],notOther])
+        }else{
+          SS   <- crossprod(W[,notOther] - muw[,notOther])
         }
-        
-        SS   <- crossprod(W[,notOther] - muw[,notOther])
         SI   <- solveRcpp(SS)
         
       }else{
+        
         # marginalize parameter matrix
         Y <- w[inSamp,notOther]
         if(RANDOM)Y <- Y - groupRandEff[inSamp,notOther]
-        XIXXX <- x[inSamp,]%*%solve(crossprod(x[inSamp,]))%*%t(x[inSamp,])
+        XIXXX <- x[inSamp,]%*%solveRcpp( crossprod(x[inSamp,]) )%*%t(x[inSamp,] )
         XUV   <- t(Y)%*%XIXXX%*%Y
         SI    <- solve( crossprod(Y) - XUV )
       }
@@ -5431,6 +5469,10 @@ gjamSensitivity <- function(output, group=NULL, nsim=100, PERSPECIES = TRUE){
     if(RANDOM){
       
       cw <- w - muw
+      
+      if( TIME ){
+        cw[tindex[,1],] <- w[tindex[,2],] - w[tindex[,1],] - muw[tindex[,2],]
+      }
       
       if(REDUCT){
         cw <- cw - rndEff
@@ -5541,24 +5583,21 @@ gjamSensitivity <- function(output, group=NULL, nsim=100, PERSPECIES = TRUE){
         if(termR){  # note: Vmat holds w[t-1,]*x[t,]
           
           Vnow <- Vnew <- Vmat
-          vww  <- ww[drop = FALSE,tindex[,1],gindex[,'colW']]*
-                  xpred[drop = FALSE,tindex[,2],xlnames][drop = FALSE,,gindex[,'rowG']]
-          Vnow[tindex[,2],] <- vww
-          
+          Vnow[tindex[,1],]  <- ww[drop = FALSE,tindex[,1],gindex[,'colW']]*
+                                xpred[drop = FALSE,tindex[,1],xlnames][drop = FALSE,,gindex[,'rowG']]
           mugNow <- Vnow%*%Rmat
           muNow[,notOther]  <- muNow[,notOther] + mugNow[,notOther]
           
-          vww <- ww[drop = FALSE,tindex[,1],gindex[,'colW']]*
-                 xtmp[drop = FALSE,tindex[,2],xlnames][drop = FALSE,,gindex[,'rowG']]
-          Vnew[tindex[,2],] <- vww
-          
+          Vnew[tindex[,1],] <- ww[drop = FALSE,tindex[,1],gindex[,'colW']]*
+                               xtmp[drop = FALSE,tindex[,1],xlnames][drop = FALSE,,gindex[,'rowG']]
           mugNew <- Vnew%*%Rmat
           muNew[,notOther]  <- muNew[,notOther] + mugNew[,notOther]
         }
         
         ww <- w
-        ww[tindex[,2],] <- ww[tindex[,2],] - ww[tindex[,1],]
+        ww[tindex[,1],] <- ww[tindex[,2],] - ww[tindex[,1],]
         ww[timeZero,] <- ww[timeZero+1,]
+        ww[timeLast,] <- ww[timeLast-1,]
         
         if(REDUCT){
           pnow <- dnorm(ww[,notOther],muNow[,notOther],sdg,log=T)
@@ -5613,22 +5652,24 @@ gjamSensitivity <- function(output, group=NULL, nsim=100, PERSPECIES = TRUE){
         
         x[xmiss] <- .imputX_MVN(x,Y,bg[,notOther],xmiss,sinv,xprior=xprior,
                                 xbound=xbound)[xmiss]
-        tmp      <- .getUnstandX(x, standRows, standMatMu[,1],
-                                 standMatSd[,1], intMat)            
-        S2U    <- tmp$S2U
-        XX     <- crossprod(x)
-        IXX    <- solveRcpp(XX)
+        if( !UNSTAND ){
+          tmp      <- .getUnstandX(x, standRows, standMatMu[,1],
+                                   standMatSd[,1], intMat)            
+          S2U    <- tmp$S2U
+          XX     <- crossprod(x)
+          IXX    <- solveRcpp(XX)
+        }
       }
       
       if( PREDICTX & length(predXcols) > 0 ){
         
         if( length(interBeta$isNonLinX) > 0 ){
           
-          xpred <- .predictY2X_nonLinear(xpred, yy=Y,bb=bg[,notOther],
+          xpred <- .predictY2X_nonLinear(xpred, yy=Y, bb=bg[,notOther],
                                          ss=sg[notOther,notOther],
-                                         priorIV = priorXIV,priorX=priorX,
+                                         priorIV = priorXIV, priorX=priorX,
                                          factorObject = factorBeta, interObject = interBeta,
-                                         lox, hix)$x
+                                         lox, hix, propx)$x   
         }
         
         if( length(px) > 0 ){
@@ -5642,7 +5683,7 @@ gjamSensitivity <- function(output, group=NULL, nsim=100, PERSPECIES = TRUE){
                                            ss=sg[notOther,notOther], sinv = sinv,
                                            priorIV = priorXIV, 
                                            priorX=priorX, predCols=px, 
-                                           REDUCT=REDUCT, lox, hix)[,px]
+                                           REDUCT=REDUCT, lox, hix, propx)[,px]
           wn <- which(!is.finite(xpred),arr.ind=T)
           if(length(wn) > 0){
             tmp <- matrix(priorX,Q,nrow(wn))
@@ -5660,7 +5701,7 @@ gjamSensitivity <- function(output, group=NULL, nsim=100, PERSPECIES = TRUE){
                                ss=sg[notOther,notOther], sinv = sinv,
                                priorIV = priorXIV, 
                                priorX=priorX,predCols=factorBeta$findex, 
-                               REDUCT=REDUCT, lox, hix)[,factorBeta$findex]
+                               REDUCT=REDUCT, lox, hix, propx)[,factorBeta$findex]
           for(k in 1:length(factorBeta$linFactor)){
             
             mm  <- factorBeta$linFactor[[k]]
@@ -5693,10 +5734,8 @@ gjamSensitivity <- function(output, group=NULL, nsim=100, PERSPECIES = TRUE){
     
     # unstandardize
     
-    if(length(standRows) > 0){           
-      
+    if( length(standRows) > 0 ){           
       if(termB){
-        
         bgU <- S2U%*%x[,xnames]%*%bg
         bgibbsUn[g,] <- bgU[wB]
       }
@@ -5709,14 +5748,14 @@ gjamSensitivity <- function(output, group=NULL, nsim=100, PERSPECIES = TRUE){
         if(ncol(xl) > 1){
           
           Vunst <- Vmat
-          wz   <- w
+          wz    <- w
           wz[wz < 0] <- 0
           vww  <- wz[drop = FALSE,tindex[,1],gindex[,'colW']]*
-            xlUnstand[drop = FALSE,tindex[,2],xlnames][drop = FALSE,,gindex[,'rowG']]
-          Vunst[tindex[,2],] <- vww
+                  xlUnstand[drop = FALSE,tindex[,1],xlnames][drop = FALSE,,gindex[,'rowG']]
+          Vunst[tindex[,1],] <- vww
           
           Y   <- w[,notOther] 
-          Y[tindex[,2],] <- Y[tindex[,2],] - w[tindex[,1],]
+          Y[tindex[,1],] <- Y[tindex[,2],] - w[tindex[,1],]
           if(termA) Y <- Y - mua[,notOther] 
           if(termB) Y <- Y - mub[,notOther]
           if(RANDOM)Y <- Y - groupRandEff[,notOther]
@@ -5724,8 +5763,8 @@ gjamSensitivity <- function(output, group=NULL, nsim=100, PERSPECIES = TRUE){
           sig <- sigmaerror
           if(!REDUCT) sig <- sg[notOther,notOther]
           
-          RmatU[,notOther] <- updateBeta(X = Vunst[tindex[,2],], 
-                                        Y = Y[tindex[,2],notOther], sig = sig, 
+          RmatU[,notOther] <- updateBeta(X = Vunst[tindex[,1],], 
+                                        Y = Y[tindex[,1],notOther], sig = sig, 
                                         beta = RmatU[,notOther],
                                         PRIOR = LPRIOR,
                                         rows = Rrows, pattern = Rpattern, 
@@ -5763,7 +5802,6 @@ gjamSensitivity <- function(output, group=NULL, nsim=100, PERSPECIES = TRUE){
         nst <- notStandardB[notStandard %in% xnames]
         stm <- standMatSdB
       }
-      
       
       tmp <- .contrastCoeff(beta=bg[,notOther], 
                             notStand = nst, 
@@ -5985,14 +6023,15 @@ gjamSensitivity <- function(output, group=NULL, nsim=100, PERSPECIES = TRUE){
   sMean <- sMean/ntot
   
   if(termB){
+    
     tmp <- .chain2tab(bgibbs[burnin:ng,], snames, xnames, wF = wB)
     betaStandXmu <- tmp$mu
     betaStandXse <- tmp$se
     betaStandXTable <- tmp$tab
     
     tmp <- .chain2tab(bFacGibbs[burnin:ng,], snames[notOther], rownames(agg))
-    betaStandXWmu <- tmp$mu
-    betaStandXWse <- tmp$se
+    betaStandXWmu    <- tmp$mu
+    betaStandXWse    <- tmp$se
     betaStandXWTable <- tmp$tab
     
     if(!is.null(loB)){
@@ -6012,9 +6051,16 @@ gjamSensitivity <- function(output, group=NULL, nsim=100, PERSPECIES = TRUE){
       betaTable <- tmp$tab
       
     }else{
-      betaMu    <- betaStandXWmu
-      betaSe    <- betaStandXWse
-      betaTable <- betaStandXWTable
+      betaMu    <- betaStandXmu
+      betaSe    <- betaStandXse
+      betaTable <- betaStandXTable
+      
+      betaWMu    <- betaStandXWmu
+      betaWSe    <- betaStandXWse
+      betaWTable <- betaStandXWTable
+      betaStandXmu  <- betaStandXse  <- betaStandXTable <- NULL
+      betaStandXWmu <- betaStandXWse <- betaStandXWTable <- NULL
+  #    bgibbs <- NULL
     }
     
     tmp <- .chain2tab(fSensGibbs[burnin:ng,,drop=F])
@@ -6119,6 +6165,11 @@ gjamSensitivity <- function(output, group=NULL, nsim=100, PERSPECIES = TRUE){
   }
   
   yMu <- ypred/ntot
+  if('CA' %in% typeNames){
+    ytmp <- yMu[,'CA' %in% typeNames]
+    ytmp[ ytmp < 0 ] <- 0
+    yMu[,'CA' %in% typeNames] <- ytmp
+  }
   y22 <- ypred2/ntot - yMu^2
   y22[y22 < 0] <- 0
   ySd <- sqrt(y22)
@@ -6137,9 +6188,14 @@ gjamSensitivity <- function(output, group=NULL, nsim=100, PERSPECIES = TRUE){
   
   meanDev <- sumDev/ntot
   
+  beta <- betaStandXmu
+  if( is.null(beta) )beta <- betaMu
+  
+  beta[ is.na(beta) ] <- 0  # if prior is set to zero
+  
   if(!TIME){
     
-    muw <- x%*%betaStandXmu[,notOther]
+    muw <- x%*%beta[,notOther]
     tmp <- .dMVN(wMu[,notOther], muw,
                  sMean[notOther,notOther], log=T)
     pd  <- meanDev - 2*sum(tmp )
@@ -6202,7 +6258,7 @@ gjamSensitivity <- function(output, group=NULL, nsim=100, PERSPECIES = TRUE){
       }
     }
     
-    if(ncol(x) > 1){
+    if( ncol(x) > 1 & !UNSTAND ){
       
       xpredMu <- .getUnstandX(xpredMu, xrow, xmu, xsd, intMat)$xu
       xpredSd[,xrow] <- xpredSd[,xrow]*matrix( xsd[xrow], n, length(xrow), byrow=T ) 
@@ -6216,7 +6272,7 @@ gjamSensitivity <- function(output, group=NULL, nsim=100, PERSPECIES = TRUE){
       wz <- muw <- wMu
       wz[wz < 0] <- 0
       if(termB){
-        muw <- x[,rownames(betaStandXmu)]%*%betaStandXmu[,notOther]
+        muw <- x[,rownames(beta)]%*%beta[,notOther]
       }
       if(termR){
         Vmat[tindex[,2],] <- wz[tindex[,2], 
@@ -6397,12 +6453,14 @@ gjamSensitivity <- function(output, group=NULL, nsim=100, PERSPECIES = TRUE){
       attr(betaTable, 'description') <- 
       attr(bgibbsUn, 'description') <- paste( parXU, parWU, sep=parSep)
     
-    attr(betaStandXmu, 'description') <- attr(betaStandXTable, 'description') <- 
-      attr(bgibbs, 'description') <- paste( parXS, parWU, sep=parSep)
-    
-    attr(betaStandXWmu, 'description') <- attr(betaStandXWTable, 'description') <- 
-      attr(sensTable, 'description') <- attr(fSensGibbs, 'description') <- 
-      attr(bFacGibbs, 'description') <- paste( parXS, parWS, parXF, sep = parSep)
+    if( !UNSTAND ){
+      attr(betaStandXmu, 'description') <- attr(betaStandXTable, 'description') <- 
+        attr(bgibbs, 'description') <- paste( parXS, parWU, sep=parSep)
+      
+      attr(betaStandXWmu, 'description') <- attr(betaStandXWTable, 'description') <- 
+        attr(sensTable, 'description') <- attr(fSensGibbs, 'description') <- 
+        attr(bFacGibbs, 'description') <- paste( parXS, parWS, parXF, sep = parSep)
+    }
     
     attr(sensBeta, 'description') <- parXS
     
@@ -10675,7 +10733,7 @@ smooth.na <- function(x,y){
   }
   
   if( type == 'contAbun' ){
-    yq[yq < 0]    <- 0
+    yq[yq < 0]    <- 0        
     return( list(wq,yq) )
   }
   
@@ -10983,6 +11041,7 @@ smooth.na <- function(x,y){
   xdata0 <- xdata
   
   if(length(form) > 0){       # not done if formula = ~ 1
+    
     NOX  <- F
     form <- .cleanNames(form)
     form <- paste0(form,collapse=' + ')
@@ -10999,7 +11058,7 @@ smooth.na <- function(x,y){
     xdata0 <- xdata[,t1, drop=F]
     xnames <- colnames(xdata0)
     
-    standX <- !sapply(xdata0,is.factor)
+    standX   <- !sapply(xdata0,is.factor)
     facNames <- names(standX)[!standX]
     standX   <- names(standX)[standX]
     standX   <- standX[!standX %in% notStandard]
@@ -11044,15 +11103,16 @@ smooth.na <- function(x,y){
   Q      <- ncol(x)
   predXcols <- 2:Q
   isFactor <- character(0)
+  if(Q < 2) checkX <- FALSE
   
   facBySpec <- missFacSpec <- NULL
   
   VIF <- isNonLinX <- designTable <- NULL
   isInt <- intMat <- numeric(0)
   
-  if(!NOX){
+  if( !NOX ){
     
-    if(length(facNames) > 0){
+    if( length(facNames) > 0 ){
       
       iy <- y*0
       iy[y > 0] <- 1
@@ -11093,18 +11153,19 @@ smooth.na <- function(x,y){
     
     # check design
     
-    if(checkX & length(standX) > 0){
+    if( checkX ){
+      
       checkInt <- range(x[,1])
       if(checkInt[1] != 1 | checkInt[2] != 1)
         stop( paste('x[,1] must be intercept (ones)') )
       
-      tmp <- .checkDesign(x[,c('intercept',standX)])
+      tmp <- .checkDesign(x)
       if(tmp$rank < tmp$p)stop( 'x not full rank' )
       VIF         <- tmp$VIF
       designTable <- tmp$designTable$table
     }
     
-    if(Q > 2 & length(standX) > 0){
+    if( checkX ){
       
       wx <- grep('^2',colnames(x),fixed=T)
       if(length(wx) > 0){
@@ -11145,7 +11206,7 @@ smooth.na <- function(x,y){
   
   # standardize in interactions
   
-  if(length(intMat) > 0){
+  if( length(intMat) > 0 ){
     
     for(j in 1:nrow(intMat)){
       im <- intMat[j,]
@@ -11211,12 +11272,12 @@ smooth.na <- function(x,y){
   if(length(notStandard) == 0)notStandard <- NULL
   
   if( !is.null(notStandard) ){
-    ns <- notStandard
+    ns <- notStandard[ notStandard %in% colnames(x) ]
     for(k in 1:length(ns)){
       wk <- grep(ns[k],colnames(x))
       ns <- c(ns,colnames(x)[wk])
     }
-    notStandard <- unique(ns)
+    notStandard <- sort( unique(ns) )
   }
   
   factorAll <- list(nfact = length(factorList), factorList = factorList, 
@@ -11650,7 +11711,7 @@ smooth.na <- function(x,y){
 .predictY2X_linear <- function(xpred,yy,bb,ss,sinv=NULL, 
                                priorIV = diag(1e-10,ncol(xpred)), 
                                priorX = matrix(0,ncol(xpred)), 
-                               predCols = c(2:ncol(xpred)),REDUCT, lox, hix){
+                               predCols = c(2:ncol(xpred)),REDUCT, lox, hix, propx){
   
   #inverse prediction for multivariate linear in x
   
@@ -11679,7 +11740,7 @@ smooth.na <- function(x,y){
   qq <- ncol(mu)
   
   if(qq > 1){
-    xpred[,predCols] <- .tnormMVNmatrix(avec=xpred[,predCols],muvec=mu,smat=V,
+    xpred[,predCols] <- .tnormMVNmatrix(avec=xpred[,predCols, drop=F],muvec=mu,smat=V,
                                lo=matrix(lox[predCols],nn,qq,byrow=T),
                                hi=matrix(hix[predCols],nn,qq,byrow=T))
   } else {
@@ -11688,9 +11749,10 @@ smooth.na <- function(x,y){
   xpred
 }
 
-.predictY2X_nonLinear <- function(xx,yy,bb,ss,priorIV = diag(1e-10,ncol(xx)), 
+.predictY2X_nonLinear <- function(xx,yy,bb,ss,
+                                  priorIV = diag(1e-10,ncol(xx)), 
                                   priorX=matrix(0,ncol(xx)),
-                                  factorObject, interObject, lox, hix){
+                                  factorObject, interObject, lox, hix, propx){
   
   #inverse prediction for multivariate nonlinear in x and factors, metropolis
   
@@ -11710,11 +11772,14 @@ smooth.na <- function(x,y){
   
   xnew <- xx
   
+  
   xv <- as.vector(xx[,predCols])
   nv <- length(xv)
   lo <- rep(lox[predCols],each=nn)
   hi <- rep(hix[predCols],each=nn)
-  xnew[,predCols] <- .tnorm(nv,lo,hi,xv,.01)
+  sx <- rep(propx[predCols],each=nn)/10
+  
+  xnew[,predCols] <- .tnorm(nv,lo,hi,xv,sx)
   
   if(length(isFactor) > 0){          # all factors, main effects
     np <- length(factorList)
@@ -11730,8 +11795,12 @@ smooth.na <- function(x,y){
     xnew[,intMat[,1]] <- xnew[,intMat[,2]]*xnew[,intMat[,3]]
   }
   
-  pnow <- .dMVN(yy,xx%*%bb,ss,log=T)
-  pnew <- .dMVN(yy,xnew%*%bb,smat=ss,log=T)
+  mux <- matrix( priorX, nn, length(priorX), byrow=T )
+  
+  pnow <- .dMVN(yy,xx%*%bb,smat=ss,log=T) + 
+    .dMVN(xx[,predCols,drop=F], mux, priorIV[drop=F, predCols,predCols] )
+  pnew <- .dMVN(yy,xnew%*%bb,smat=ss,log=T)+ 
+    .dMVN(xnew[,predCols,drop=F], mux, priorIV[drop=F, predCols,predCols] )
   
   a  <- exp(pnew - pnow)
   z  <- runif(nn,0,1)
@@ -12681,9 +12750,11 @@ smooth.na <- function(x,y){
   function(w, plo, phi, wpropTime, xl, yp, Rmat, Amat, rndEff, groupRandEff, sdg, muw, mub,
            Umat, Vmat, sinv){
     
+    # muw is predicted w[tindex[,2],] - w[tindex[,1],]
+    
     if(RANDOM)muw <- muw + groupRandEff
     
-    W <- matrix(.tnorm(n*S,plo,phi,w,wpropTime),n,S)
+    W <- matrix( .tnorm( n*S,plo,phi,w,wpropTime ),n,S )
     
     W[sampleW == 0] <- y[sampleW == 0]
     
@@ -12699,47 +12770,55 @@ smooth.na <- function(x,y){
       
       i00 <- tindex[ii,1]
       i11 <- tindex[ii,2]
+      i22 <- tindex[ii,3]
       t00 <- which(i00 %in% timeZero)
       
-      ww <- W[i00,]
-      ww[ww < 0] <- 0  # for Vmat, Umat
+      w0 <- which(!i22 %in% c(timeLast+1) )
+      i00 <- i00[w0]
+      i11 <- i11[w0]
+      i22 <- i22[w0]
       
-      muStar <- muw[i11,]*0
+      ww <- W[i11,]                           # proposed w (not delta)
+      w0 <- ww
+      w0[ ww < 0 ] <- 0                       # for Vmat, Umat
+      
+      muStar <- muw[i11,]*0                   # predicted delta only for one step ahead
       if(termB)muStar <- muStar + mub[i11,]
       if(termR){
-        mugStar <- (ww[,gindex[,'colW']]*xl[i11,gindex[,'rowG']])%*%Rmat # mean for i11
+        mugStar <- (w0[,gindex[,'colW']]*xl[i11,gindex[,'rowG']])%*%Rmat # mean for i11
         muStar <- muStar + mugStar
       }
       if(termA){
-        muaStar <- (ww[,uindex[,1]]*ww[,uindex[,2]] )%*%Amat
+        muaStar <- (w0[,uindex[,1]]*w0[,uindex[,2]] )%*%Amat
         muStar[,notOther]  <- muStar[,notOther] + muaStar[,notOther]
       }
       if(RANDOM)muStar <- muStar + groupRandEff[i11,]
       if(REDUCT)muStar  <- muStar + rndEff[i11,]
       
+      
+      # current
       dw <- w*0
-      dw[ tindex[,2], ] <- w[ tindex[,2] , ] - w[ tindex[,1] , ]
+      dw[ i00, ] <- w[ i11, ] - w[ i00 , ]  #W - w; 
+      dw[ i11, ] <- w[ i22, ] - w[ i11 , ]
       dw[ timeZero,]    <- dw[timeZero+1, ]
       
+      # proposed
       dW <- W*0
-      dW[ tindex[,2], ] <- W[ tindex[,2] , ] - w[ tindex[,1] , ]  #note W - w
+      dW[ i00, ] <- W[ i11, ] - w[ i00 , ]  #W - w; 
+      dW[ i11, ] <- w[ i22, ] - W[ i11 , ]
       dW[ timeZero,]    <- dW[timeZero+1, ]
-      
-      z0 <- dw[i00,]
-      z1 <- dw[i11,]
-      Z0 <- dW[i00,]
       
       if(REDUCT){
         
-        pnow <- dnorm( z0, muw[i00,],sdg,log=T) +
-                dnorm( z1, muw[i11,],sdg,log=T)
-        pnew <- dnorm(Z0, muw[i00,],sdg,log=T) + 
-                dnorm(z1, muStar,sdg,log=T)
+        pnow <- dnorm( dw[ i00, ], muw[i00,],sdg,log=T) +
+                dnorm( dw[ i11, ], muw[i11,],sdg,log=T)
+        pnew <- dnorm(dW[ i00, ], muw[i00,],sdg,log=T) + 
+                dnorm(dW[ i11, ], muStar,sdg,log=T)
         
         za <- which( runif(length(pnow),0,1) < exp(pnew - pnow) )
         if(length(za) > 0){
-          w[i00,][za] <- W[i00,][za]
-          ww <- w[i00,]
+          w[i11,][za] <- W[i11,][za]
+          ww <- w[i11,]
           ww[ww < 0]  <- 0
           muw[i11,][za] <- muStar[za]
           Umat[i11,]    <- ww[,uindex[,1]]*ww[,uindex[,2]]
@@ -12747,44 +12826,46 @@ smooth.na <- function(x,y){
         }
       }else{
         
-        pnow <- .dMVN(z0, muw[i00,], sinv=sinv, log=T) + 
-                .dMVN(z1, muw[i11,], sinv=sinv,log=T)
+        pnow <- .dMVN(dw[ i00, ], muw[i00,], sinv=sinv, log=T) + 
+                .dMVN(dw[ i11, ], muw[i11,], sinv=sinv,log=T)
         
-        pnew <- .dMVN(Z0, muw[i00,], sinv=sinv, log=T) +  # current predicts new i00
-                .dMVN(z1, muStar, sinv=sinv, log=T)    # new predicts current i11
+        pnew <- .dMVN(dW[ i00, ], muw[i00,], sinv=sinv, log=T) +  # current predicts new i00
+                .dMVN(dW[ i11, ], muStar, sinv=sinv, log=T)    # new predicts current i11
         
         za <- which( runif(length(pnow),0,1) < exp(pnew - pnow) )
         if(length(za) > 0){
-          w[i00[za],] <- W[i00[za],]
-          ww          <- w[i00,]
-          ww[ww < 0]  <- 0
+          w[i11[za],] <- W[i11[za],]
+          ww          <- w[i11,]
+          w0 <- ww
+          w0[ ww < 0 ] <- 0 
+          
           muw[i11[za],] <- muStar[za,]
-          if(termA)Umat[i11,]    <- ww[,uindex[,1]]*ww[,uindex[,2]]
-          if(termR)Vmat[i11,]    <- ww[,gindex[,'colW']]*xl[i11,gindex[,'rowG']]
+          if(termA)Umat[i11,]    <- w0[,uindex[,1]]*w0[,uindex[,2]]
+          if(termR)Vmat[i11,]    <- w0[,gindex[,'colW']]*xl[i11,gindex[,'rowG']]
         }
       }
 
-      W[i00,] <- w[i00,]
+      W[i11,] <- w[i11,]
     }
-    
+     
     # timeLast
     nz <- length(timeLast)
     W <- matrix( .tnorm(nz*S, plo[timeLast,], phi[timeLast,], w[timeLast,],
                         wpropTime[timeLast,]), nz, S)
     z1 <- w[ timeLast , ] - w[ timeLast - 1 , ]
-    Z1 <- W[,] - w[timeLast - 1,]
+    Z1 <- W - w[timeLast - 1,]
     
     if(REDUCT){
-      pnow <- dnorm( z1, muw[timeLast,], sdg, log=T)
-      pnew <- dnorm( Z1, muw[timeLast,], sdg, log=T)
+      pnow <- dnorm( z1, muw[timeLast-1,], sdg, log=T)
+      pnew <- dnorm( Z1, muw[timeLast-1,], sdg, log=T)
       
       za   <- which( runif(length(pnow),0,1) < exp(pnew - pnow) )
       if(length(za) > 0){
         w[timeLast,][za]   <- W[za]
       }
     }else{
-      pnow <- .dMVN( z1, muw[timeLast,], sinv=sinv,log=T)
-      pnew <- .dMVN( Z1, muw[timeLast,], sinv=sinv,log=T)
+      pnow <- .dMVN( z1, muw[timeLast-1,], sinv=sinv,log=T)
+      pnew <- .dMVN( Z1, muw[timeLast-1,], sinv=sinv,log=T)
       
       za   <- which( runif(length(pnow),0,1) < exp(pnew - pnow) )
       if(length(za) > 0){
@@ -12797,68 +12878,71 @@ smooth.na <- function(x,y){
     W <- matrix( .tnorm(nz*S, plo[timeZero,], phi[timeZero,], w[timeZero,],
                         wpropTime[timeZero,]), nz, S)
     ww <- W[drop=FALSE, ,]
-    ww[ww < 0] <- 0
+    w0 <- ww
+    w0[ ww < 0 ] <- 0 
     
     muStar <- ww*0
-    if(termB)muStar <- muStar + mub[timeZero+1,]
+    if(termB)muStar <- muStar + mub[timeZero,]
     if(termR){
-      mugStar <- (ww[drop=FALSE, ,gindex[,'colW']]*xl[timeZero+1,gindex[,'rowG']])%*%Rmat
+      mugStar <- (w0[drop=FALSE, ,gindex[,'colW']]*xl[timeZero,gindex[,'rowG']])%*%Rmat
       muStar <- muStar + mugStar
     }
     if(termA){
-      muaStar <- (ww[drop=FALSE, ,uindex[,1]]*ww[,uindex[,2]] )%*%Amat
+      muaStar <- (w0[drop=FALSE, ,uindex[,1]]*w0[,uindex[,2]] )%*%Amat
       muStar[,notOther]  <- muStar[,notOther] + muaStar[,notOther]
     }
     
     z1 <- w[timeZero+1,notOther] - w[timeZero,notOther]
+    Z1 <- w[timeZero+1,notOther] - W[,notOther]
     
-    if(RANDOM)muStar <- muStar + groupRandEff[timeZero+1,] 
+    if(RANDOM)muStar <- muStar + groupRandEff[timeZero,] 
     
     if(REDUCT){
-      muStar  <- muStar + rndEff[timeZero+1,]
-      pnow <- dnorm( z1, muw[timeZero+1,notOther], sdg, log=T)
-      pnew <- dnorm( z1, muStar[,notOther], sdg, log=T)
+      muStar  <- muStar + rndEff[timeZero,]
+      pnow <- dnorm( z1, muw[timeZero,notOther], sdg, log=T)
+      pnew <- dnorm( Z1, muStar[,notOther], sdg, log=T)
       
       if(length(corCols) > 0){
-        pnow[,corCols] <- dnorm( z1[,corCols], muw[timeZero+1,corCols], 1, log=T)
-        pnew[,corCols] <- dnorm( z1[,corCols], muStar[,corCols], 1, log=T)
+        pnow[,corCols] <- dnorm( z1[,corCols], muw[timeZero,corCols], 1, log=T)
+        pnew[,corCols] <- dnorm( Z1[,corCols], muStar[,corCols], 1, log=T)
       }
       
       za   <- which( runif(length(pnow),0,1) < exp(pnew - pnow) )
       if(length(za) > 0){
         w[timeZero,][za]   <- W[za]
         ww <- w[drop=FALSE, timeZero,]
-        ww[ww < 0]  <- 0
-        muw[timeZero+1,][za] <- muStar[za]
-        Umat[timeZero+1,]    <- ww[drop=FALSE, ,uindex[,1]]*ww[drop=FALSE, ,uindex[,2]]
-        Vmat[timeZero+1,]    <- ww[drop=FALSE, ,gindex[,'colW']]*xl[timeZero+1,gindex[,'colX']]
+        w0 <- ww
+        w0[ ww < 0 ] <- 0 
+        muw[timeZero,][za] <- muStar[za]
+        Umat[timeZero,]    <- w0[drop=FALSE, ,uindex[,1]]*w0[drop=FALSE, ,uindex[,2]]
+        Vmat[timeZero,]    <- w0[drop=FALSE, ,gindex[,'colW']]*xl[timeZero,gindex[,'colX']]
       }
     }else{
-      pnow <- .dMVN( z1, muw[timeZero+1,notOther], sinv=sinv,log=T)
-      pnew <- .dMVN( z1, muStar[,notOther], sinv=sinv,log=T)
+      pnow <- .dMVN( z1, muw[timeZero,notOther], sinv=sinv,log=T)
+      pnew <- .dMVN( Z1, muStar[,notOther], sinv=sinv,log=T)
       
       za   <- which( runif(length(pnow),0,1) < exp(pnew - pnow) )
       if(length(za) > 0){
         w[timeZero[za],]   <- W[za,]
         ww <- w[drop=FALSE,timeZero,]
-        ww[ww < 0]  <- 0
-        muw[timeZero[za]+1,] <- muStar[za,]
-        if(termA)Umat[timeZero+1,]    <- ww[,uindex[,1]]*ww[,uindex[,2]]
-        if(termR)Vmat[timeZero+1,]    <- ww[,gindex[,'colW']]*xl[timeZero+1,gindex[,'rowG']]
+        w0 <- ww
+        w0[ ww < 0 ] <- 0 
+        
+        muw[timeZero[za],] <- muStar[za,]
+        if(termA)Umat[timeZero,]    <- w0[,uindex[,1]]*w0[,uindex[,2]]
+        if(termR)Vmat[timeZero,]    <- w0[,gindex[,'colW']]*xl[timeZero,gindex[,'rowG']]
       }
     }
 
     # yp is on variance scale, not correlation scale
     mu <- muw[,notOther]
-    mu[tindex[,2],] <- mu[tindex[,2],] + w[tindex[,1],notOther]
-    mu[timeZero,]   <- mu[timeZero,] + w[timeZero,notOther]
+    mu[tindex[,2],] <- w[tindex[,1],notOther] + muw[tindex[,1],] 
+    mu[timeZero,]   <- w[timeZero,notOther]  
     if(REDUCT){
       yp <- matrix(rnorm(n*S,mu,sdg),n,S)
     }else{
       yp[,notOther] <- .rMVN(n, mu, sinv = sinv[notOther,notOther]) 
     }
-    
-      
     
     list(Umat = Umat, Vmat = Vmat, w = w, muw = muw, yp = yp)
   }
@@ -13050,7 +13134,7 @@ smooth.na <- function(x,y){
       }
       
       yPredict <- w*0
-      if(length(notCorCols) > 0){
+      if( length(notCorCols) > 0 ){
         muw <- x%*%bg
         if(RANDOM)muw <- muw + groupRandEff
   #      yPredict[,notOther] <- .rMVN(n,muw[,notOther],sg[notOther,notOther])
@@ -13318,7 +13402,7 @@ smooth.na <- function(x,y){
         WX  <- crossprod(X,Y)
         WIX <- IXX%*%WX
         bg  <- matrix( .rMVN(1,as.vector(WIX),
-                             kronecker(sig,IXX)),nrow(IXX),ncol(WIX) )
+                             kronecker(sig, IXX)),nrow(IXX),ncol(WIX) )
         return(bg)
       }
       
