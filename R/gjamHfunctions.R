@@ -5005,7 +5005,7 @@ gjamSensitivity <- function(output, group=NULL, nsim=100, PERSPECIES = TRUE){
                        factorObject = factorBeta, 
                        intMat = factorBeta$intMat, 
                        standMatSd = standMatSdB, standMatMu = standMatMuB, 
-                       notOther, notStandardB) 
+                       notOther, notStandardB, UNSTAND) 
     factorBeta$linFactor <- tmp$linFactor
     
     linFactorBeta <- numeric(0)
@@ -5029,7 +5029,7 @@ gjamSensitivity <- function(output, group=NULL, nsim=100, PERSPECIES = TRUE){
                        intMat = interRho$intMat, 
                        standMatSd = standMatSdL, 
                        standMatMu = standMatMuL, 
-                       notOther, notStandard = notStandardL) 
+                       notOther, notStandard = notStandardL, UNSTAND) 
      factorRho$linFactor <- tmp$linFactor
     
     linFactorRho <- numeric(0)
