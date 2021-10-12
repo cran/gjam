@@ -64,7 +64,6 @@ censor <- tmp$censor
 
 ml  <- list(ng=2000, burnin=500, typeNames = tTypes, censor = censor)
 out <- gjam(~ temp + stdage + deficit, xdata, ydata = traity, modelList = ml)
-pl  <- list(SMALLPLOTS=F)           
-gjamPlot(output = out, plotPars = pl)         
+gjamPlot( output = out )         
 }
 }

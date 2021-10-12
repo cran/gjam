@@ -38,7 +38,7 @@ sim <- gjamSimData(S = 12, Q = 5, typeNames = 'CA')
 ml  <- list(ng = 50, burnin = 5, typeNames = sim$typeNames)
 out <- gjam(sim$formula, sim$xdata, sim$ydata, modelList = ml)
 
-xvector <- colMeans(out$inputs$x)  #predict at mean values for data
+xvector <- colMeans(out$inputs$xStand)  #predict at mean values for data
 xvector[1] <- 1
 
 fit <- gjamIIE(output = out, xvector)

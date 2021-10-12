@@ -14,7 +14,7 @@
 \concept{prediction}
 \concept{ordination}
 \concept{missing data}
-\concept{Tobit regression}
+\concept{Tobit}
 \concept{zero inflation}
 \concept{sampling effort}
 \concept{sensitivity}
@@ -30,8 +30,8 @@
   \tabular{ll}{
   Package: \tab gjam\cr
   Type: \tab Package\cr
-  Version: \tab 2.3.9\cr
-  Date: \tab 2021-7-14\cr
+  Version: \tab 2.5\cr
+  Date: \tab 2021-10-11\cr
   License: \tab GPL (>= 2)\cr
   URL: \tab http://sites.nicholas.duke.edu/clarklab/code/\cr
   }

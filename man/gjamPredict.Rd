@@ -22,7 +22,7 @@
 \details{
  If \code{newdata} is not specified, the response is predicted from \code{xdata}  as an in-sample prediction. If \code{newdata} is specified, prediction is either conditional or out-of-sample. 
  
-Conditional prediction on a new set of \code{y} values is done if \code{newdata} includes the \code{matrix ycondData}, which holds columns to condition on.  \code{ycondData} must be a \code{matrix} and have column names matching those in \code{y} that it will replace.  \code{ycondData} must have at least one column, but fewer than \code{ncol(y)} columns.  Columns not included in \code{ycondData} will be predicted conditionally.
+Conditional prediction on a new set of \code{y} values is done if \code{newdata} includes the \code{matrix ycondData}, which holds columns to condition on.  \code{ycondData} must be a \code{matrix} and have column names matching those in \code{y} that it will replace.  \code{ycondData} must have at least one column, but fewer than \code{ncol(y)} columns.  Columns not included in \code{ycondData} will be predicted conditionally. Note that conditional prediction can be erratic if the observations on which the prediction is conditioned are unlikely given the model.
  
 Alternatively, the \code{list newdata} can include a new version of \code{xdata} for out-of-sample prediction.  The version of \code{xdata} passed in \code{newdata} has the columns with the same names and variable types as \code{xdata} passed to \code{\link{gjam}}.  Note that factor levels must also match those included when fitting the model.  All columns in \code{y} will be predicted out-of-sample.  
 
@@ -49,14 +49,15 @@ See examples below.
 }
 \examples{
 \dontrun{
-S   <- 5
+S   <- 10
 f   <- gjamSimData(n = 200, S = S, Q = 3, typeNames = 'CC') 
 ml  <- list(ng = 50, burnin = 5, typeNames = f$typeNames, holdoutN = 10)
 out <- gjam(f$formula, f$xdata, f$ydata, modelList = ml)
 
 # predict data
+cols <- c('#018571', '#a6611a')
 par(mfrow=c(1,3),bty='n')             
-gjamPredict(out, y2plot = colnames(f$ydata)) #predict the data in-sample
+gjamPredict(out, y2plot = colnames(f$ydata)) # predict the data in-sample
 title('full sample')
 
 # out-of-sample prediction
@@ -70,32 +71,38 @@ p1 <- gjamPredict(out, newdata = newdata)
 x2   <- p1$x[,2]
 ylim <- c(0, max(p1$sdList$yMu[,1] + p1$sdList$yPe[,1]))
 plot(x2, p1$sdList$yMu[,1],type='l',lwd=2, ylim=ylim, xlab='x2',
-     ylab = 'Predicted')
-lines(x2, p1$sdList$yMu[,1] + p1$sdList$yPe[,1], lty=2)
-lines(x2, p1$sdList$yMu[,1] - p1$sdList$yPe[,1], lty=2)
+     ylab = 'Predicted', col = cols[1])
+lines(x2, p1$sdList$yMu[,1] + p1$sdList$yPe[,1], lty=2, col = cols[1])
+lines(x2, p1$sdList$yMu[,1] - p1$sdList$yPe[,1], lty=2, col = cols[1])
 
 # .95 prediction error
-lines(x2, p1$piList$yLo[,1], lty=3)
-lines(x2, p1$piList$yHi[,1], lty=3)
+lines(x2, p1$piList$yLo[,1], lty=3, col = cols[1])
+lines(x2, p1$piList$yHi[,1], lty=3, col = cols[1])
 title('SE and prediction, Sp 1')
 
-# conditional prediction
-ydataCond <- out$inputs$y[,1,drop=FALSE]*0          #set first column to zero
+# conditional prediction, assume first species is absent
+ydataCond <- out$inputs$y[,1,drop=FALSE]*0                 # set first column to zero
 newdata   <- list(ydataCond = ydataCond, nsim=50)
 p0        <- gjamPredict(output = out, newdata = newdata)
 
-ydataCond <- ydataCond + 20                  #first column is 20
+ydataCond <- ydataCond + 10                                # first column is 10
 newdata   <- list(ydataCond = ydataCond, nsim=50)
 p1        <- gjamPredict(output = out, newdata = newdata)
 
-plot(out$inputs$y[,4],p0$sdList$yMu[,4], cex=.4,col='orange'); abline(0,1,lty=2)
-points(out$inputs$y[,4],p1$sdList$yMu[,4], cex=.4,col='blue')
+s    <- 4         # species chosen at random to compare
+ylim <- range( p0$sdList$yMu[,s], p1$sdList$yMu[,s] )
+plot(out$inputs$y[,s],p0$sdList$yMu[,s], cex=.2, col=cols[1],
+     xlab = 'Observed', ylab = 'Predicted', ylim = ylim)
+abline(0,1,lty=2)
+points(out$inputs$y[,s],p1$sdList$yMu[,s], cex=.2, col=cols[2])
 title('Cond. on 1st Sp')
+legend( 'topleft', c('first species absent', 'first species = 10'), 
+        text.col = cols, bty = 'n')
 
 
-# conditional, out-of-sample prediction compared with unconditional, in-sample
+# conditional, out-of-sample
 n   <- 1000
-S   <- 5
+S   <- 10
 f   <- gjamSimData(n = n, S = S, Q = 3, typeNames = 'CA') 
 
 holdOuts <- sort( sample(n, 50) )
@@ -103,34 +110,36 @@ holdOuts <- sort( sample(n, 50) )
 xdata <- f$xdata[-holdOuts,] # fitted data
 ydata <- f$ydata[-holdOuts,]
 
-xx <- f$xdata[holdOuts,]     # holdout for prediction
+xx <- f$xdata[holdOuts,]     # use for prediction
 yy <- f$ydata[holdOuts,]
 
-ml  <- list(ng = 2000, burnin = 50, typeNames = f$typeNames) # fit the non-holdouts
+ml  <- list(ng = 2000, burnin = 50, typeNames = f$typeNames)   # fit the non-holdouts
 out <- gjam(f$formula, xdata, ydata, modelList = ml)
 
-cdex <- 1:2                 # condition on 2 species
+cdex <- sample(S, 4)        # condition on 4 species
 ndex <- c(1:S)[-cdex]       # conditionally predict others
 
 newdata <- list(xdata = xx, ydataCond = yy[,cdex], nsim = 200) # conditionally predict out-of-sample
 p2      <- gjamPredict(output = out, newdata = newdata)
 
-plot( as.matrix(yy[,ndex]), p2$sdList$yMu[,ndex]); abline(0,1,lty=2)
-title('Conditional, out-of-sample')
+par(bty='n', mfrow=c(1,1))
+plot( as.matrix(yy[,ndex]), p2$sdList$yMu[,ndex], 
+      xlab = 'Observed', ylab = 'Predicted', cex=.3, col = cols[1])
+abline(0,1,lty=2)
+title('RMSPE')
 mspeC <- sqrt( mean(  (as.matrix(yy[,ndex]) - p2$sdList$yMu[,ndex])^2 ) )
 
 #predict unconditionally, out-of-sample
 newdata   <- list(xdata = xx, nsim = 200 ) 
 p1 <- gjamPredict(out, newdata = newdata)
 
-points( as.matrix(yy[,ndex]), p1$sdList$yMu[,ndex], col=2)
+points( as.matrix(yy[,ndex]), p1$sdList$yMu[,ndex], col=cols[2], cex = .3)
 mspeU <- sqrt( mean(  (as.matrix(yy[,ndex]) - p1$sdList$yMu[,ndex])^2 ) )
 
 e1 <- paste( 'cond, out-of-sample =', round(mspeC, 2) )
 e2 <- paste( 'uncond, out-of-sample =', round(mspeU, 2) )
 
-legend('topleft', c(e1, e2), text.col=c(1,2))
-
+legend('topleft', c(e1, e2), text.col = cols, bty = 'n')
 }
 }
 

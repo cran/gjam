@@ -6,6 +6,11 @@
 
 using namespace Rcpp;
 
+#ifdef RCPP_USE_GLOBAL_ROSTREAM
+Rcpp::Rostream<true>&  Rcpp::Rcout = Rcpp::Rcpp_cout_get();
+Rcpp::Rostream<false>& Rcpp::Rcerr = Rcpp::Rcpp_cerr_get();
+#endif
+
 // byRcpp
 Rcpp::List byRcpp(const int nr, const arma::mat frommat, arma::mat totmat, arma::mat summat, arma::mat minmat, arma::mat maxmat);
 RcppExport SEXP _gjam_byRcpp(SEXP nrSEXP, SEXP frommatSEXP, SEXP totmatSEXP, SEXP summatSEXP, SEXP minmatSEXP, SEXP maxmatSEXP) {

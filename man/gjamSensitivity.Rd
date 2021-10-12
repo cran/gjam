@@ -7,7 +7,7 @@
 }
 \usage{
 
-  gjamSensitivity(output, group=NULL, nsim=100, PERSPECIES = TRUE)
+  gjamSensitivity(output, group = NULL, nsim = 100, PERSPECIES = TRUE)
   
 }
 
