@@ -36,8 +36,8 @@
 f      <- gjamSimData(S = 30, typeNames = 'CA') 
 ml     <- list(ng = 30, burnin = 5, typeNames = f$typeNames, holdoutN = 10)
 output <- gjam(f$formula, f$xdata, f$ydata, modelList = ml)
-ePCA   <- gjamOrdination(output, PLOT=FALSE)
-eNMDS  <- gjamOrdination(output, PLOT=FALSE, method='NMDS')
+ePCA   <- gjamOrdination(output, PLOT=TRUE)
+eNMDS  <- gjamOrdination(output, PLOT=TRUE, method='NMDS')
 }
 }
 

@@ -65,7 +65,7 @@ xdata     <- f$xdata[1:20,]
 xdata[,3] <- mean(f$xdata[,3])     # mean for x[,3]
 xdata[,2] <- seq(-2,2,length=20)   # gradient x[,2]
 newdata   <- list(xdata = xdata, nsim = 50 )
-p1 <- gjamPredict(out, newdata = newdata)
+p1 <- gjamPredict( output = out, newdata = newdata)
 
 # plus/minus 1 prediction SE, default effort = 1000
 x2   <- p1$x[,2]
@@ -75,7 +75,7 @@ plot(x2, p1$sdList$yMu[,1],type='l',lwd=2, ylim=ylim, xlab='x2',
 lines(x2, p1$sdList$yMu[,1] + p1$sdList$yPe[,1], lty=2, col = cols[1])
 lines(x2, p1$sdList$yMu[,1] - p1$sdList$yPe[,1], lty=2, col = cols[1])
 
-# .95 prediction error
+# upper 0.95 prediction error
 lines(x2, p1$piList$yLo[,1], lty=3, col = cols[1])
 lines(x2, p1$piList$yHi[,1], lty=3, col = cols[1])
 title('SE and prediction, Sp 1')

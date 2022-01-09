@@ -57,7 +57,7 @@ censor <- tmp$censor
 
 formula <- as.formula(~ temp + deficit)
 lo <- list(temp_ring = 0, deficit_drought = 0) # positive combinations
-b  <- gjamPriorTemplate(formula, xdata, ydata = traity, lo = lo, hi = hi)
+b  <- gjamPriorTemplate(formula, xdata, ydata = traity, lo = lo)
 bp <- list(loBeta = b$lo, hiBeta = b$hi)
 
 ml <- list(ng=4000, burnin=1000, typeNames = tTypes, censor = censor, 

@@ -32,9 +32,9 @@ For factors, effects are plotted relative to the mean over all factor levels.
 }
 \examples{
 \dontrun{
-sim <- gjamSimData(S = 10, Q = 6, typeNames = 'OC')
-ml  <- list(ng = 50, burnin = 5, typeNames = sim$typeNames)
-out <- gjam(sim$formula, sim$xdata, sim$ydata, modelList = ml)
+f   <- gjamSimData(S = 10, Q = 6, typeNames = 'OC')
+ml  <- list(ng = 50, burnin = 5, typeNames = f$typeNames)
+out <- gjam(f$formula, f$xdata, f$ydata, modelList = ml)
 
 xvector <- colMeans(out$inputs$xStand)  #predict at mean values for data, standardized x
 xvector[1] <- 1

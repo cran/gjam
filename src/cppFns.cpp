@@ -49,8 +49,8 @@ Rcpp::List condMVNRcpp(const arma::uvec cdex,
   arma::mat mu1 = mu.cols(cdex) + trans(p1 * trans(xx.cols(gdex) - mu.cols(gdex)));
   arma::mat vr1 = sigma.submat(cdex, cdex) - p1 * sigma.submat(gdex,cdex);
   
-  return Rcpp::List::create(Rcpp::Named("mu")=mu1,
-                            Rcpp::Named("vr")=vr1);
+  return Rcpp::List::create(Rcpp::Named("mu") = mu1,
+                            Rcpp::Named("vr") = vr1);
 }
 
 

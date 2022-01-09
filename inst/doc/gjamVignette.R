@@ -677,22 +677,22 @@ cbind(ml,mx)
 #  ydata <- gjamTrimY( ydata, 10, OTHER=F )$y
 
 ## ----gjamCA, eval=F-----------------------------------------------------------
-#  ml      <- list( ng = 5000, burnin = 2000, typeNames = 'CA',
+#  ml      <- list( ng = 2500, burnin = 1000, typeNames = 'DA',
 #                   reductList = list( N = 15, r = 10), PREDICTX = F )
 #  formula <- as.formula(~ temp + deficit*moisture)
-#  out     <- gjam( formula, xdata, ydata, modelList = ml )
+#  output  <- gjam( formula, xdata, ydata, modelList = ml )
 #  
 #  # prediction
-#  newdata <- list( xdata = xdata, nsim=100 )
-#  tmp     <- gjamPredict( out, newdata=newdata )
+#  newdata <- list( nsim=100 )
+#  tmp     <- gjamPredict( output, newdata=newdata )
 #  full    <- tmp$sdList$yMu
 
 ## ----cond, eval=F-------------------------------------------------------------
 #  cols    <- c( '#1b9e77','#d95f02' )
 #  cnames  <- sample( colnames(ydata), S/2)
 #  wc      <- match(cnames, colnames(ydata))
-#  newdata <- list(ydataCond = ydata[,cnames], nsim=200)
-#  tmp     <- gjamPredict(out, newdata = newdata)
+#  newdata <- list(ydataCond = ydata[,cnames], nsim=100)
+#  tmp     <- gjamPredict(output, newdata = newdata)
 #  condy   <- tmp$sdList$yMu
 #  
 #  plot(ydata[,-wc], full[,-wc], ylim = c(range(ydata)),
@@ -1104,11 +1104,9 @@ for(j in 1:length(xbox)){
 #  out$prediction$tMu[1:5,]     # n by M predictive means
 #  out$prediction$tSe[1:5,]     # n by M predictive std errors
 
-## ----ecoms, eval = F----------------------------------------------------------
-#  fit$eComs[1:10,]
-
 ## ----checkRank, eval=F--------------------------------------------------------
-#  x <- model.matrix(formula, xdata)
+#  f <- gjamSimData(S = 5, typeNames = 'CA')
+#  x <- model.matrix(f$formula, f$xdata)
 #  qr(x)$rank
 
 ## ----cont1, echo=F------------------------------------------------------------

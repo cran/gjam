@@ -12,7 +12,7 @@
 
 <meta name="author" content="James S. Clark" />
 
-<meta name="date" content="2021-10-12" />
+<meta name="date" content="2022-01-09" />
 
 <title>Generalized joint attribute modeling - gjam</title>
 
@@ -141,7 +141,7 @@ code span.wa { color: #60a0b0; font-weight: bold; font-style: italic; } /* Warni
 
 <h1 class="title toc-ignore">Generalized joint attribute modeling - gjam</h1>
 <h4 class="author"><a href="http://sites.nicholas.duke.edu/clarklab/">James S. Clark</a></h4>
-<h4 class="date">2021-10-12</h4>
+<h4 class="date">2022-01-09</h4>
 
 
 <div id="TOC">
@@ -211,7 +211,7 @@ code span.wa { color: #60a0b0; font-weight: bold; font-style: italic; } /* Warni
 </ul>
 </div>
 
-<p><strong>version 2.5</strong></p>
+<p><strong>version 2.5.1</strong></p>
 <p><strong>citation:</strong></p>
 <p><em>Clark, J.S., D. Nemergut, B. Seyednasrollah, P. Turner, and S. Zhang. 2017. Generalized joint attribute modeling for biodiversity analysis: Median-zero, multivariate, multifarious data, <a href="https://esajournals.onlinelibrary.wiley.com/doi/full/10.1002/ecm.1241">Ecological Monographs, 87, 34–56.</a></em></p>
 <p><a href="http://sites.nicholas.duke.edu/clarklab/code/">website</a></p>
@@ -971,23 +971,23 @@ code span.wa { color: #60a0b0; font-weight: bold; font-style: italic; } /* Warni
 <div id="categorical-data" class="section level2">
 <h2><span style="color:teal">categorical data</span></h2>
 <p>Categorical data have levels within groups. The levels are unordered. The columns in <code>ydata</code> that hold categorical responses are declared as <code>typeNames = &quot;CAT&quot;</code>. In observation vector <span class="math inline">\(\mathbf{y}_{i}\)</span> there are elements for one less than the number of factor levels. Suppose that observations are obtained on attributes of individual plants, each plant being an observation. The group <code>leaf</code> type might have four levels broadleaf decidious <code>bd</code>, needleleaf decidious <code>nd</code>, broadleaf evergreen <code>be</code>, and needleaf evergreen <code>ne</code>. A second group <code>xylem</code> anatomy might have three levels diffuse porous <code>dp</code>, ring porous <code>rp</code>, and tracheid <code>tr</code>. In both cases I assign the last class to be a reference class, <code>other</code>. Ten rows of the response matrix data might look like this:</p>
-<pre><code>##    leaf xylem
-## 1    nd    rp
-## 2 other    dp
-## 3    nd other
-## 4    bd    dp
-## 5    be other
-## 6    nd    dp
-## 7 other other</code></pre>
+<pre><code>##   leaf xylem
+## 1   nd    dp
+## 2   bd    dp
+## 3   nd other
+## 4   nd other
+## 5   be    dp
+## 6   bd other
+## 7   bd    dp</code></pre>
 <p>This <code>data.frame ydata</code> becomes this response matrix <code>y</code>:</p>
 <pre><code>##      leaf_bd leaf_nd leaf_be leaf_other xylem_dp xylem_rp xylem_other
-## [1,]       0       1       0          0        0        1           0
-## [2,]       0       0       0          1        1        0           0
+## [1,]       0       1       0          0        1        0           0
+## [2,]       1       0       0          0        1        0           0
 ## [3,]       0       1       0          0        0        0           1
-## [4,]       1       0       0          0        1        0           0
-## [5,]       0       0       1          0        0        0           1
-## [6,]       0       1       0          0        1        0           0
-## [7,]       0       0       0          1        0        0           1</code></pre>
+## [4,]       0       1       0          0        0        0           1
+## [5,]       0       0       1          0        1        0           0
+## [6,]       1       0       0          0        0        0           1
+## [7,]       1       0       0          0        1        0           0</code></pre>
 <p><code>gjam</code> expands the two groups into four and three columns in <code>y</code>, respectively. As for composition data there is one redundant column for each group. Here is an example with simulated data, having two categorical groups:</p>
 <div class="sourceCode" id="cb43"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb43-1"><a href="#cb43-1" aria-hidden="true" tabindex="-1"></a>types <span class="ot">&lt;-</span> <span class="fu">c</span>( <span class="st">&#39;CAT&#39;</span>, <span class="st">&#39;CAT&#39;</span> )</span>
 <span id="cb43-2"><a href="#cb43-2" aria-hidden="true" tabindex="-1"></a>f     <span class="ot">&lt;-</span> <span class="fu">gjamSimData</span>( <span class="at">n =</span> <span class="dv">3000</span>, <span class="at">S =</span> <span class="fu">length</span>(types), <span class="at">typeNames =</span> types )</span>
@@ -1157,21 +1157,21 @@ code span.wa { color: #60a0b0; font-weight: bold; font-style: italic; } /* Warni
 <span id="cb52-7"><a href="#cb52-7" aria-hidden="true" tabindex="-1"></a>ydata <span class="ot">&lt;-</span> ydata[,<span class="fu">colnames</span>(ydata) <span class="sc">!=</span> <span class="st">&#39;other&#39;</span>]</span>
 <span id="cb52-8"><a href="#cb52-8" aria-hidden="true" tabindex="-1"></a>ydata <span class="ot">&lt;-</span> <span class="fu">gjamTrimY</span>( ydata, <span class="dv">10</span>, <span class="at">OTHER=</span>F )<span class="sc">$</span>y</span></code></pre></div>
 <p>Here is a model fitted to the forest <code>&quot;CA&quot;</code> data:</p>
-<div class="sourceCode" id="cb53"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb53-1"><a href="#cb53-1" aria-hidden="true" tabindex="-1"></a>ml      <span class="ot">&lt;-</span> <span class="fu">list</span>( <span class="at">ng =</span> <span class="dv">5000</span>, <span class="at">burnin =</span> <span class="dv">2000</span>, <span class="at">typeNames =</span> <span class="st">&#39;CA&#39;</span>, </span>
+<div class="sourceCode" id="cb53"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb53-1"><a href="#cb53-1" aria-hidden="true" tabindex="-1"></a>ml      <span class="ot">&lt;-</span> <span class="fu">list</span>( <span class="at">ng =</span> <span class="dv">2500</span>, <span class="at">burnin =</span> <span class="dv">1000</span>, <span class="at">typeNames =</span> <span class="st">&#39;DA&#39;</span>, </span>
 <span id="cb53-2"><a href="#cb53-2" aria-hidden="true" tabindex="-1"></a>                 <span class="at">reductList =</span> <span class="fu">list</span>( <span class="at">N =</span> <span class="dv">15</span>, <span class="at">r =</span> <span class="dv">10</span>), <span class="at">PREDICTX =</span> F )</span>
 <span id="cb53-3"><a href="#cb53-3" aria-hidden="true" tabindex="-1"></a>formula <span class="ot">&lt;-</span> <span class="fu">as.formula</span>(<span class="sc">~</span> temp <span class="sc">+</span> deficit<span class="sc">*</span>moisture)</span>
-<span id="cb53-4"><a href="#cb53-4" aria-hidden="true" tabindex="-1"></a>out     <span class="ot">&lt;-</span> <span class="fu">gjam</span>( formula, xdata, ydata, <span class="at">modelList =</span> ml )</span>
+<span id="cb53-4"><a href="#cb53-4" aria-hidden="true" tabindex="-1"></a>output  <span class="ot">&lt;-</span> <span class="fu">gjam</span>( formula, xdata, ydata, <span class="at">modelList =</span> ml )</span>
 <span id="cb53-5"><a href="#cb53-5" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb53-6"><a href="#cb53-6" aria-hidden="true" tabindex="-1"></a><span class="co"># prediction</span></span>
-<span id="cb53-7"><a href="#cb53-7" aria-hidden="true" tabindex="-1"></a>newdata <span class="ot">&lt;-</span> <span class="fu">list</span>( <span class="at">xdata =</span> xdata, <span class="at">nsim=</span><span class="dv">100</span> )</span>
-<span id="cb53-8"><a href="#cb53-8" aria-hidden="true" tabindex="-1"></a>tmp     <span class="ot">&lt;-</span> <span class="fu">gjamPredict</span>( out, <span class="at">newdata=</span>newdata )</span>
+<span id="cb53-7"><a href="#cb53-7" aria-hidden="true" tabindex="-1"></a>newdata <span class="ot">&lt;-</span> <span class="fu">list</span>( <span class="at">nsim=</span><span class="dv">100</span> )</span>
+<span id="cb53-8"><a href="#cb53-8" aria-hidden="true" tabindex="-1"></a>tmp     <span class="ot">&lt;-</span> <span class="fu">gjamPredict</span>( output, <span class="at">newdata=</span>newdata )</span>
 <span id="cb53-9"><a href="#cb53-9" aria-hidden="true" tabindex="-1"></a>full    <span class="ot">&lt;-</span> tmp<span class="sc">$</span>sdList<span class="sc">$</span>yMu</span></code></pre></div>
 <p>Here I condition on half of the species and predict the other half:</p>
 <div class="sourceCode" id="cb54"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb54-1"><a href="#cb54-1" aria-hidden="true" tabindex="-1"></a>cols    <span class="ot">&lt;-</span> <span class="fu">c</span>( <span class="st">&#39;#1b9e77&#39;</span>,<span class="st">&#39;#d95f02&#39;</span> )</span>
 <span id="cb54-2"><a href="#cb54-2" aria-hidden="true" tabindex="-1"></a>cnames  <span class="ot">&lt;-</span> <span class="fu">sample</span>( <span class="fu">colnames</span>(ydata), S<span class="sc">/</span><span class="dv">2</span>)</span>
 <span id="cb54-3"><a href="#cb54-3" aria-hidden="true" tabindex="-1"></a>wc      <span class="ot">&lt;-</span> <span class="fu">match</span>(cnames, <span class="fu">colnames</span>(ydata))</span>
-<span id="cb54-4"><a href="#cb54-4" aria-hidden="true" tabindex="-1"></a>newdata <span class="ot">&lt;-</span> <span class="fu">list</span>(<span class="at">ydataCond =</span> ydata[,cnames], <span class="at">nsim=</span><span class="dv">200</span>)</span>
-<span id="cb54-5"><a href="#cb54-5" aria-hidden="true" tabindex="-1"></a>tmp     <span class="ot">&lt;-</span> <span class="fu">gjamPredict</span>(out, <span class="at">newdata =</span> newdata)</span>
+<span id="cb54-4"><a href="#cb54-4" aria-hidden="true" tabindex="-1"></a>newdata <span class="ot">&lt;-</span> <span class="fu">list</span>(<span class="at">ydataCond =</span> ydata[,cnames], <span class="at">nsim=</span><span class="dv">100</span>)</span>
+<span id="cb54-5"><a href="#cb54-5" aria-hidden="true" tabindex="-1"></a>tmp     <span class="ot">&lt;-</span> <span class="fu">gjamPredict</span>(output, <span class="at">newdata =</span> newdata)</span>
 <span id="cb54-6"><a href="#cb54-6" aria-hidden="true" tabindex="-1"></a>condy   <span class="ot">&lt;-</span> tmp<span class="sc">$</span>sdList<span class="sc">$</span>yMu</span>
 <span id="cb54-7"><a href="#cb54-7" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb54-8"><a href="#cb54-8" aria-hidden="true" tabindex="-1"></a><span class="fu">plot</span>(ydata[,<span class="sc">-</span>wc], full[,<span class="sc">-</span>wc], <span class="at">ylim =</span> <span class="fu">c</span>(<span class="fu">range</span>(ydata)), </span>
@@ -1669,9 +1669,6 @@ The matrices <code>out$parameters$cutMu</code> and <code>out$parameters$cutSe</c
 <p>Trait predictive distributions are summarized here:</p>
 <div class="sourceCode" id="cb78"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb78-1"><a href="#cb78-1" aria-hidden="true" tabindex="-1"></a>out<span class="sc">$</span>prediction<span class="sc">$</span>tMu[<span class="dv">1</span><span class="sc">:</span><span class="dv">5</span>,]     <span class="co"># n by M predictive means</span></span>
 <span id="cb78-2"><a href="#cb78-2" aria-hidden="true" tabindex="-1"></a>out<span class="sc">$</span>prediction<span class="sc">$</span>tSe[<span class="dv">1</span><span class="sc">:</span><span class="dv">5</span>,]     <span class="co"># n by M predictive std errors</span></span></code></pre></div>
-<p>The groupings of species in terms of their similar responses to the environment (the <code>ematrix</code>) are here, showing only the 4 most frequent species in each of the <code>ncluster = 5</code> groups. Here are a few rows:</p>
-<div class="sourceCode" id="cb79"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb79-1"><a href="#cb79-1" aria-hidden="true" tabindex="-1"></a>fit<span class="sc">$</span>eComs[<span class="dv">1</span><span class="sc">:</span><span class="dv">10</span>,]</span></code></pre></div>
-<p>Because groups have different numbers of species, the tailing rows are packed with <code>NA</code>.</p>
 <p>Additional quantities can be predicted from the output using the MCMC output in the list <code>out$chains</code>.</p>
 <p>It is worth checking for combinations of responses and factor levels that might be missing from the data. That is an issue here, because each species has a limited geographic distribution, as do the soil types. The object <code>out$inputs$factorBeta$missFacSpec</code> lists the missing predictor-response combinations. This list could be the basis for consolidating factor levels.</p>
 </div>
@@ -1751,8 +1748,9 @@ The matrices <code>out$parameters$cutMu</code> and <code>out$parameters$cutSe</c
 <p>A joint model for data sets with many response variables can be unstable for several reasons. Because the model can accommodate large, multivariate data sets, there is temptation to throw everything in and see what happens. gjam is vulnerable due to the fact that columns in <code>ydata</code> have different scales and, thus, can range over orders of magnitude. It’s best to start small, gain a feel for the data and how it translates to estimates of many coefficients and covariances. More species and predictors can be added without changing the model. The opposite approach of throwing in everything is asking for trouble and is unlikely to generate insight.</p>
 <p>If a model won’t execute, start by simplifying it. Use a small number of predictors and response variables. It’s easy to add complexity later. If execution fails there are several options.</p>
 <p><strong>Check <span class="math inline">\(\mathbf{X}\)</span> and <span class="math inline">\(\mathbf{Y}\)</span></strong>. Most errors come from the data. If there are many species (large <span class="math inline">\(\mathbf{Y}\)</span>), some may occur once or not at all. This is easy to check with the function <code>gjamTrimY</code>. If I suspect trouble with the design matrix <span class="math inline">\(\mathbf{X}\)</span>, I can make sure it is full rank, e.g.,</p>
-<div class="sourceCode" id="cb80"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb80-1"><a href="#cb80-1" aria-hidden="true" tabindex="-1"></a>x <span class="ot">&lt;-</span> <span class="fu">model.matrix</span>(formula, xdata)</span>
-<span id="cb80-2"><a href="#cb80-2" aria-hidden="true" tabindex="-1"></a><span class="fu">qr</span>(x)<span class="sc">$</span>rank</span></code></pre></div>
+<div class="sourceCode" id="cb79"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb79-1"><a href="#cb79-1" aria-hidden="true" tabindex="-1"></a>f <span class="ot">&lt;-</span> <span class="fu">gjamSimData</span>(<span class="at">S =</span> <span class="dv">5</span>, <span class="at">typeNames =</span> <span class="st">&#39;CA&#39;</span>)</span>
+<span id="cb79-2"><a href="#cb79-2" aria-hidden="true" tabindex="-1"></a>x <span class="ot">&lt;-</span> <span class="fu">model.matrix</span>(f<span class="sc">$</span>formula, f<span class="sc">$</span>xdata)</span>
+<span id="cb79-3"><a href="#cb79-3" aria-hidden="true" tabindex="-1"></a><span class="fu">qr</span>(x)<span class="sc">$</span>rank</span></code></pre></div>
 <p>The rank must equal the number of columns in <code>x</code>.</p>
 <p><strong>If I am simulating data</strong>, first try it again. The simulator aims to generate data that will actually work, more challenging than would be the case for a univariate simulation of a single data type. Simulated data are random, so try again.</p>
 <p><strong>If the fit is bad</strong>, it could be noisy data (there is no ‘signal’), but there are other things to check. Again, insure that all columns in <code>ydata</code> include at least some non-zero values. One would not expect a univariate model to fit a data set where the response is all zeros. However, when there are many columns in <code>ydata</code>, the fact that some are never or rarely observed can be overlooked. The functions <code>hist</code>, <code>colSums</code>, and, for discrete data, <code>table</code>, can be used. The function <code>gjamTrimY(ydata, m)</code> can be used to limit <code>ydata</code> to only those columns with at least <code>m</code> non-zero observations.</p>

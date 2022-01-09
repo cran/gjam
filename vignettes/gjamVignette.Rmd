@@ -12,7 +12,7 @@ vignette: >
   %\VignetteEncoding{UTF-8}
 ---
 
-**version 2.5**
+**version 2.5.1**
 
 
 ```{r outform, echo=F}
@@ -1205,14 +1205,14 @@ ydata <- gjamTrimY( ydata, 10, OTHER=F )$y
 Here is a model fitted to the forest `"CA"` data:
 
 ```{r gjamCA, eval=F}
-ml      <- list( ng = 5000, burnin = 2000, typeNames = 'CA', 
+ml      <- list( ng = 2500, burnin = 1000, typeNames = 'DA', 
                  reductList = list( N = 15, r = 10), PREDICTX = F )
 formula <- as.formula(~ temp + deficit*moisture)
-out     <- gjam( formula, xdata, ydata, modelList = ml )
+output  <- gjam( formula, xdata, ydata, modelList = ml )
 
 # prediction
-newdata <- list( xdata = xdata, nsim=100 )
-tmp     <- gjamPredict( out, newdata=newdata )
+newdata <- list( nsim=100 )
+tmp     <- gjamPredict( output, newdata=newdata )
 full    <- tmp$sdList$yMu
 ```
 
@@ -1222,8 +1222,8 @@ Here I condition on half of the species and predict the other half:
 cols    <- c( '#1b9e77','#d95f02' )
 cnames  <- sample( colnames(ydata), S/2)
 wc      <- match(cnames, colnames(ydata))
-newdata <- list(ydataCond = ydata[,cnames], nsim=200)
-tmp     <- gjamPredict(out, newdata = newdata)
+newdata <- list(ydataCond = ydata[,cnames], nsim=100)
+tmp     <- gjamPredict(output, newdata = newdata)
 condy   <- tmp$sdList$yMu
 
 plot(ydata[,-wc], full[,-wc], ylim = c(range(ydata)), 
@@ -1904,14 +1904,6 @@ out$prediction$tMu[1:5,]     # n by M predictive means
 out$prediction$tSe[1:5,]     # n by M predictive std errors
 ```
 
-The groupings of species in terms of their similar responses to the environment (the `ematrix`) are here, showing only the 4 most frequent species in each of the `ncluster = 5` groups. Here are a few rows:
-
-```{r ecoms, eval = F}
-fit$eComs[1:10,]
-```
-
-Because groups have different numbers of species, the tailing rows are packed with `NA`.
-
 Additional quantities can be predicted from the output using the MCMC output in the list `out$chains`.
 
 It is worth checking for combinations of responses and factor levels that might be missing from the data.  That is an issue here, because each species has a limited geographic distribution, as do the soil types.  The object `out$inputs$factorBeta$missFacSpec` lists the missing predictor-response combinations.  This list could be the basis for consolidating factor levels.
@@ -1968,7 +1960,8 @@ If a model won't execute, start by simplifying it.  Use a small number of predic
 **Check $\mathbf{X}$ and $\mathbf{Y}$**.  Most errors come from the data.  If there are many species (large $\mathbf{Y}$), some may occur once or not at all.  This is easy to check with the function `gjamTrimY`.  If I suspect trouble with the design matrix $\mathbf{X}$, I can make sure it is full rank, e.g.,
 
 ```{r checkRank, eval=F}
-x <- model.matrix(formula, xdata)
+f <- gjamSimData(S = 5, typeNames = 'CA')
+x <- model.matrix(f$formula, f$xdata)
 qr(x)$rank
 ```
 

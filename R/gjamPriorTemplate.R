@@ -25,16 +25,16 @@ gjamPriorTemplate <- function(formula, xdata, ydata, lo = NULL, hi = NULL){
   loBeta <- beta - Inf
   hiBeta <- beta + Inf
   
-  if(!is.null(lo)){
+  if( !is.null(lo) ){
     loBeta <- .setLoHi(plist = lo, pmat = loBeta, xnames, ynames)
   }
-  if(!is.null(hi)){
+  if( !is.null(hi) ){
     hiBeta <- .setLoHi(plist = hi, pmat = hiBeta, xnames, ynames)
   }
   
   
   wna <- which( sapply(lo, is.na) )
-  wna <- c( wna, which( sapply(hi, is.na) ) )
+  if(!is.null(hi))wna <- c( wna, which( sapply(hi, is.na) ) )
   if(length(wna) > 0){
     rc <- columnSplit( names(wna), '_')
     rc <- rc[ rc[,2] %in% rownames(loBeta), ]             # reference level for factors will be absent
