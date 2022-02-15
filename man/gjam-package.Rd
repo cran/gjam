@@ -30,8 +30,8 @@
   \tabular{ll}{
   Package: \tab gjam\cr
   Type: \tab Package\cr
-  Version: \tab 2.5.1\cr
-  Date: \tab 2022-1-9\cr
+  Version: \tab 2.5.2\cr
+  Date: \tab 2022-2-15\cr
   License: \tab GPL (>= 2)\cr
   URL: \tab http://sites.nicholas.duke.edu/clarklab/code/\cr
   }
@@ -64,6 +64,8 @@ Posterior simulation is done by Gibbs sampling.  Analysis is done by these funct
 
 \code{\link{gjamPredict}} does conditional prediction.
 
+\code{\link{gjamConditionalParameters}} obtains the conditional coefficient matrices.
+
 \code{\link{gjamOrdination}} ordinates the response matrix.
 
 \code{\link{gjamDeZero}} de-zeros response matrix for storage.
@@ -95,12 +97,15 @@ Taylor-Rodriguez, D., K. Kaufeld, E. M. Schliep, J. S. Clark, and A. E. Gelfand.
 \seealso{
   \code{\link{gjam}}, 
   \code{\link{gjamSimData}},
+  \code{\link{gjamPriorTemplate}},
   \code{\link{gjamSensitivity}},
   \code{\link{gjamCensorY}}, 
   \code{\link{gjamTrimY}}, 
   \code{\link{gjamPredict}}, 
   \code{\link{gjamSpec2Trait}}, 
   \code{\link{gjamPlot}},
+  \code{\link{gjamPredict}},
+  \code{\link{gjamConditionalParameters}},
   \code{\link{gjamDeZero}},
   \code{\link{gjamReZero}}
   

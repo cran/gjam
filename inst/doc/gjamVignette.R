@@ -702,6 +702,9 @@ cbind(ml,mx)
 #  legend( 'topleft', c('Unconditional', 'Conditional on half of species'),
 #          text.col = cols[1:2], bty='n' )
 
+## ---- eval = F----------------------------------------------------------------
+#  conditionalParameters( output, conditionOn = c('S1','S4') )
+
 ## ---- eval=FALSE--------------------------------------------------------------
 #  f   <- gjamSimData( n = 100, S = 200, typeNames='CA' )
 #  ml  <- list( ng = 2000, burnin = 500, typeNames = f$typeNames,

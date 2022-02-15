@@ -1,3 +1,96 @@
+
+# TOF
+
+gjamConditionalParameters <- function( output, conditionOn, nsim = 2000 ){
+  
+  # output - class gjam
+  # conditionOn - responses (column names in ydata) to condition on
+  
+  ynames <- colnames( output$inputs$y )
+  yNot   <- ynames[ !ynames %in% conditionOn ]
+  sigma  <- output$parameters$sigMu
+  beta   <- output$parameters$betaMu
+  xnames <- rownames(beta)
+  
+  Q <- nrow(beta)
+  
+  REDUCT <- F
+  if( 'REDUCT' %in% names(output$modelList) ){
+    if( output$modelList$REDUCT )REDUCT <- T
+  }
+  if( REDUCT ){
+    REDUCT <- T
+    otherpar <- output$modelList$reductList$otherpar
+    N  <- otherpar$N
+    r  <- otherpar$r
+  }
+  
+  fac <- function(sigma, beta){
+    A <- sigma[yNot, conditionOn]%*%solveRcpp(sigma[drop=F,conditionOn,conditionOn])
+    C <- beta[drop=F, , yNot] - beta[drop=F, , conditionOn]%*%t(A)
+    P <- sigma[yNot,yNot] - A%*%sigma[drop=F,conditionOn, yNot]
+    list(A = A, C = t(C), P = P)
+  }
+  
+  acp <- fac(sigma, beta)
+  A   <- acp$A
+  C   <- acp$C
+  P   <- acp$P
+  
+  S <- length(ynames)
+  sindex <- c(1:S)
+  bchain <- output$chains$bgibbsUn
+  schain <- output$chains$sgibbs
+  echain <- output$chains$sigErrGibbs
+  
+  burnin <- output$modelList$burnin
+  ng     <- output$modelList$ng
+  
+  g  <- sample(burnin:ng, nsim, replace=T)
+  nn <- length(yNot)
+  nc <- length(conditionOn)
+  ag <- matrix( NA, nsim, nc*nn)
+  cg <- matrix( NA, nsim, Q*nn)
+  pg <- matrix( NA, nsim, nn*nn)
+  
+  colnames(ag) <- .multivarChainNames(rownames(A),colnames(A))
+  colnames(cg) <- .multivarChainNames(rownames(C),colnames(C))
+  colnames(pg) <- .multivarChainNames(rownames(P),colnames(P))
+  
+  m <- 0
+  
+  for( i in g ){
+    
+    m <- m + 1
+    
+    bi <- matrix( bchain[i,], Q, S )
+    
+    if(REDUCT){
+      sigmaerror <- output$chains$sigErrGibbs[i]
+      Z  <- matrix(output$chains$sgibbs[i,],N,r)
+      K  <- output$chains$kgibbs[i,]
+      si <- .expandSigma(sigmaerror, S, Z = Z, K, REDUCT = T)
+    } else {
+      si <- .expandSigma(schain[i,], S = S, REDUCT = F)[sindex,sindex]
+    }
+    colnames(bi) <- rownames(si) <- colnames(si) <- ynames
+    rownames(bi) <- xnames
+    tmp <- fac( si, bi )
+    ag[m, ] <- tmp$A
+    cg[m, ] <- tmp$C
+    pg[m, ] <- tmp$P
+  }
+  
+  atab <- .chain2tab(ag, snames = conditionOn, xnn = yNot, sigfig = 4 ) 
+  ctab <- .chain2tab(cg, snames = xnames, xnn = yNot, sigfig = 4) 
+  ptab <- .chain2tab(pg, snames = yNot, xnn = yNot, sigfig = 4) 
+  
+  list( Amu = atab$mu, Ase = atab$se, Atab = atab$tab,
+        Cmu = ctab$mu, Cse = ctab$se, Ctab = ctab$tab,
+        Pmu = ptab$mu, Pse = ptab$se, Ptab = ptab$tab )
+}
+
+
 .aggData <- function(cnames, data, gather, FUN){
   
   #cnames - column names in data to operate on
@@ -3373,13 +3466,45 @@ gjamFillMissingTimes <- function(xdata, ydata, edata, groupCol, timeCol,
   new  <- c(ci, cdex)
   cnew <- match(cdex, new)
   pnew <- 1:(p - length(cnew))
+  
+  cond <- try( 
+    condMVNRcpp(cnew-1, pnew-1, xx[,new, drop=F], 
+                mu[,new, drop=F], sigma[new,new]), T)
+  
+  if( !inherits( cond,'try-error') ){
+    return(cond)
+    
+  }else{
+    
+    sinv <- solve( sigma[drop=F, pnew, pnew] )
+    p1   <- sigma[drop=F, cnew,pnew]%*%sinv
+    mu1  <- mu[drop=F, ,cnew] + t( p1%*%t( xx[drop=F, ,pnew] - mu[drop=F, ,pnew] ) )
+    vr1  <- sigma[drop=F, cnew,cnew] - p1%*%sigma[drop=F, pnew,cnew]
+    return( list( mu = mu1, vr = vr1 ) )
+  }
+  
+}
+
+.conditionalMVNRcpp <- function( xx, mu, sigma, cdex, p=ncol(mu) ){  # not used, see .conditionalMVN
+  # xx, mu are matrices
+  # cdex conditional for these variables, must come last
+  # gdex condition on these variables
+  
+  if(ncol(xx) != ncol(sigma))stop('ncol(xx) != ncol(sigma)')
+  if(ncol(mu) != ncol(sigma))stop('ncol(mu) != ncol(sigma)')
+  if(max(cdex) > ncol(mu))stop('max(cdex) > ncol(mu)')
+  
+  # new order
+  ci   <- (1:p)[-cdex]
+  new  <- c(ci, cdex)
+  cnew <- match(cdex, new)
+  pnew <- 1:(p - length(cnew))
    
   condMVNRcpp(cnew-1, pnew-1, xx[,new, drop=F], mu[,new, drop=F], sigma[new,new]) 
-  
-#  gdex <- (1:p)[-cdex] - 1
-#  cdex <- cdex - 1
-#  condMVNRcpp(cdex, gdex, xx, mu, sigma) 
 }
+
+  
+
 
 .byGJAM <- function(x, i, j, summat=matrix(0,max(i),max(j)), 
                    totmat=summat, fun='mean'){  #
@@ -3487,7 +3612,7 @@ gjamFillMissingTimes <- function(xdata, ydata, edata, groupCol, timeCol,
     cx <- 1/(cx*1.01)
   } else {
     diag(cx) <- .0000001 + diag(cx) 
-    cx <- solve(cx)
+    cx <- solveRcpp(cx)
   }
   
   xk <- (Y[,notOther] - matrix(bgg[1,notOther],n,SO,byrow=T))%*%t(bx)%*%cx
@@ -3618,49 +3743,38 @@ gjamFillMissingTimes <- function(xdata, ydata, edata, groupCol, timeCol,
 }
 
 
-.getUnstandX <- function(formula, x, standRows, xmu, xsd, factorColumns = NULL ){
+.getUnstandX <- function(formula, x, xdata, standRows ){
   
   # x is standardized for columns standRows
   # create an unstandardized version of x
-  # factorColumns needed from xdata if factor levels expanded in x
   
   if(length(standRows) == 0)return( list( xu = x, S2U = diag( ncol(x)) ) )
   
-  xu <- x
-  xu[,standRows] <- t( xmu[standRows] + 
-                         t(x[,standRows,drop=F])*xsd[standRows] )
-  if( !is.null(factorColumns) ){                    #if factor levels already expanded in x
-    xu <- data.frame( xu, factorColumns )
-  }
-  xu <- model.matrix(formula, data.frame(xu), drop.unused.levels = FALSE )
-  colnames(xu)[1] <- 'intercept'
+  xUnstand <-  model.matrix(formula, xdata ) 
+  colnames(xUnstand)[1] <- 'intercept'
   
-  s2u <- solve( crossprod(xu) )%*%crossprod(xu, x) # bu <- s2u%*%bs
-  s2u[ abs(s2u) < 1e-14 ] <- 0
+  s2u <- solveRcpp( crossprod(xUnstand) )%*%crossprod(xUnstand,x)
   
-  list(xu = xu, S2U = s2u)
+  list(xu = xUnstand, S2U = s2u)
 }
 
-.getStandX <- function(formula, xu, standRows, xmu=NULL, xsd=NULL){
+.getStandX <- function(formula, xu, standRows, xmu = NULL, xsd = NULL){
   
   # xu is unstandardized
+  # xdataStand is xdata with standardized columns
   # standardize only columns in standRows using xmu, xsd
   
-  if( length(standRows) == 0 )return( list(xstand = xu, xmu = xmu, xsd = xsd,
-                                           U2S = diag(ncol(xu)) ) )
-  # xu is an unstandardized data.frame for xdata
+  if( length(standRows) == 0 ){
+    xs <- model.matrix(formula, data.frame(xu) )
+    colnames(xs)[1] <- 'intercept'
+    return( list(xstand = xs, xdataStand = xu, xmu = xmu, xsd = xsd,
+                                           U2S = diag(ncol(xs)) ) )
+  }
   
- # x.u <- model.matrix(formula, data.frame(xu) )
- # colnames(x.u)[1] <- 'intercept'
-  
-  xu <- as.data.frame( xu )
+  xu <- xdataStand <- as.data.frame( xu )
   
   inCols <- colnames(xu)
   ifact  <- which( sapply(data.frame(xu), is.factor) )
-  
-  if( length(ifact) > 0 ){
-    xtmp <- xu[, -ifact, drop = F]
-  }
   
   if( is.null(xmu) )xmu <- colMeans(xu[,standRows, drop=F], na.rm=T)
   if( is.null(xsd) )xsd <- apply(xu[,standRows, drop=F], 2, sd, na.rm=T)
@@ -3685,11 +3799,13 @@ gjamFillMissingTimes <- function(xdata, ydata, edata, groupCol, timeCol,
   
   xs[, sc] <- t( ( t( xs[, sc, drop = F] ) - xmu[sc] )/xsd[sc] )
   
+  xdataStand[,sc] <- xs[,sc] # xdata with standardized columns
+  
   xs <- model.matrix(formula, data.frame(xs) )
   colnames(xs)[1] <- 'intercept'
   
-  xd <- model.matrix(formula, data.frame(xu) ) 
-  colnames(xd)[1] <- 'intercept'
+  xu <- model.matrix(formula, xu )   # unstandardized
+  colnames(xs)[1] <- 'intercept'
   
   bigSD <- apply(xs, 2, range)
   wk <- which( abs(bigSD) > 20, arr.ind=T )
@@ -3703,30 +3819,17 @@ gjamFillMissingTimes <- function(xdata, ydata, edata, groupCol, timeCol,
     wna[,2] <- match( wnaCol, colnames(xs) )
     xs[ wna ] <- NA
   }
+
+  ssx <- try( solveRcpp( crossprod( xs ) ), T )
   
-  if( length(ifact) > 0 ){
-    xtmp[,standRows] <- xs[,standRows]
-    xs <- xu
-    xs[,standRows] <- xtmp[,standRows]
-  }
-  
-  if( identical(colnames(xd), colnames(xs) ) & length(ifact) == 0 ){
-    
-    ssx <- try( solve( crossprod( xs ) ), T )
-    
-    if( inherits( ssx,'try-error') ){
-      u2s <- diag( ncol(xs) )
-    }else{
-  
-      u2s <- ssx%*%crossprod(xs,xd) # bs <- u2s%*%bu
-      u2s[ abs(u2s) < 1e-12 ] <- 0
-    }
-  }else{
- #   xs  <- xs[,colnames(x.u)]
+  if( inherits( ssx,'try-error') ){
     u2s <- diag( ncol(xs) )
+  }else{
+    u2s <- ssx%*%crossprod(xs,xu) # bs <- u2s%*%bu
+    u2s[ abs(u2s) < 1e-10 ] <- 0
   }
 
-  list(xstand = xs, xmu = xmu, xsd = xsd, U2S = u2s)
+  list(xstand = xs, xdataStand = xdataStand, xmu = xmu, xsd = xsd, U2S = u2s)
 }
   
 .getHoldLoHi <- function(yh, wh, pl, ph, eff, ymax, typeNames, cutg, ordCols){
@@ -4104,7 +4207,7 @@ gjamFillMissingTimes <- function(xdata, ydata, edata, groupCol, timeCol,
       L  <- mm$L                      # for A <- L%*%bg; 
       C  <- mm$C                      # L <- solve(t(C)); C = solve(t(L))
       
-      if(length(eCont) > 1){
+      if( length(eCont) > 1 ){
         eCont <- .blockDiag(eCont,cm)
         dCont <- .blockDiag(dCont,D[,-1,drop=F])
         lCont <- .blockDiag(lCont,L[,-1,drop=F])
@@ -4526,7 +4629,6 @@ gjamSensitivity <- function(output, group=NULL, nsim=100, PERSPECIES = TRUE){
   standMatMu  <- tmp$standMatMu  
   xdataNames  <- tmp$xdataNames
   standRows   <- tmp$standRows
-#  if( length(notStandard) == 0 )standRows <- NULL  !!!!!!!!!!!!!!!!
   
   factorRho <- interRho <- NULL
   xlnames   <- character(0)
@@ -4770,7 +4872,7 @@ gjamSensitivity <- function(output, group=NULL, nsim=100, PERSPECIES = TRUE){
     
     bigc <- crossprod(bigx)
     diag(bigc) <- diag(bigc)*1.00001
-    bigi <- try( solve(bigc), silent = TRUE )
+    bigi <- try( solveRcpp(bigc), silent = TRUE )
     
     if(inherits(bigi,'try-error'))bigi <- ginv(bigc)
     
@@ -5057,7 +5159,7 @@ gjamSensitivity <- function(output, group=NULL, nsim=100, PERSPECIES = TRUE){
     Cmat <- var(w[,notOther]/2)
     Cmat <- Cmat + diag(.1*diag(Cmat))
     Cprior <- Cmat
-    CImat <- solve(Cprior)
+    CImat <- solveRcpp(Cprior)
     Ckeep <- diag(S)
     
     alphaRanSums <- alphaRanSums2 <- alphaRandGroup*0
@@ -5340,16 +5442,15 @@ gjamSensitivity <- function(output, group=NULL, nsim=100, PERSPECIES = TRUE){
   if(length(facNames) > 0){
     xf <- xdata[, facNames, drop=F]
   }
-  tmp <- .getUnstandX(formula, x, standRows, standMatMu[,1], standMatSd[,1],
-                      factorColumns = xf )
+  tmp <- .getUnstandX(formula, x, xdata, standRows )
   S2U      <- tmp$S2U                    # S2U%*%*bg
   xUnstand <- tmp$xu
+  
   
   if( Q == 1 )PREDICTX <- FALSE
   
   if(TIME & termB){
-    tmp <- .getUnstandX(formula, x[,xnames], standRowsB, standMatMuB[,1],standMatSdB[,1],
-                        factorColumns = xf )
+    tmp <- .getUnstandX(formula, x[,xnames], xdata, standRowsB )
     S2U <- tmp$S2U
   }
   
@@ -5360,8 +5461,7 @@ gjamSensitivity <- function(output, group=NULL, nsim=100, PERSPECIES = TRUE){
       xf <- xdata[, facNamesRho, drop=F]
     }
     
-    tmp <- .getUnstandX( formulaRho, xl, standRowsL, standMatMuL[,1], standMatSdL[,1],
-                         factorColumns = xf )
+    tmp <- .getUnstandX( formulaRho, xl, xdata, standRowsL )
     S2UL      <- tmp$S2U
     xlUnstand <- tmp$xu
   }
@@ -5547,7 +5647,8 @@ gjamSensitivity <- function(output, group=NULL, nsim=100, PERSPECIES = TRUE){
         if(RANDOM)Y <- Y - groupRandEff[inSamp,notOther]
         XIXXX <- x[inSamp,]%*%solveRcpp( crossprod(x[inSamp,]) )%*%t(x[inSamp,] )
         XUV   <- t(Y)%*%XIXXX%*%Y
-        SI    <- solve( crossprod(Y) - XUV )
+        YX   <- crossprod(Y) - XUV
+        SI    <- solve( YX ) 
       }
       sinv <- .rwish(sigmaDf, SI)
       sg[notOther,notOther] <- solveRcpp(sinv)
@@ -5729,8 +5830,7 @@ gjamSensitivity <- function(output, group=NULL, nsim=100, PERSPECIES = TRUE){
           if(length(facNames) > 0){
             xf <- xdata[, facNames, drop=F]
           }
-          tmp    <- .getUnstandX(formula, x, standRows, standMatMu[,1], standMatSd[,1],
-                                 factorColumns = xf )            
+          tmp    <- .getUnstandX(formula, x, xdata, standRows )            
           S2U    <- tmp$S2U
           XX     <- crossprod(x)
           IXX    <- solveRcpp(XX)
@@ -5739,20 +5839,14 @@ gjamSensitivity <- function(output, group=NULL, nsim=100, PERSPECIES = TRUE){
       
     }else{ #############not TIME
       
-      tmp   <- .updateW( rows=1:n, x, w, y, bg, sg, alpha=alphaB, 
+      # ww <- x%*%bg + rmvnormRcpp(nrow(w), rep(0, S), sg)
+      
+      tmp   <- .updateW( rows=1:nrow(x), x, w, y, bg, sg, alpha=alphaB, 
                          cutg, plo, phi, rndEff, groupRandEff, 
                          sigmaerror, wHold )
       w     <- tmp$w
       yp    <- tmp$yp
-  #    plo   <- tmp$plo
-  #    phi   <- tmp$phi
       wHold <- tmp$wHold    #values for w if not held out
-      
-      # check
-  #    groupRandEff <- t(alphaRandGroup)[groupIndex,]
-  #    ypp <- x%*%bg + groupRandEff[inSamp,notOther]  + rndEff
-  #    ypp[ ypp < 0 ] <- 0
-      
       
       Y <- w[,notOther]
       if(holdoutN > 0) Y[holdoutIndex,] <- wHold[,notOther]  # if w not held out
@@ -5768,8 +5862,7 @@ gjamSensitivity <- function(output, group=NULL, nsim=100, PERSPECIES = TRUE){
           if(length(facNames) > 0){
             xf <- xdata[, facNames, drop=F]
           }
-          tmp    <- .getUnstandX( formula, x, standRows, standMatMu[,1], standMatSd[,1],
-                                  factorColumns = xf )            
+          tmp    <- .getUnstandX( formula, x, xdata, standRows )            
           S2U    <- tmp$S2U
           XX     <- crossprod(x)
           IXX    <- solveRcpp(XX)
@@ -5849,9 +5942,9 @@ gjamSensitivity <- function(output, group=NULL, nsim=100, PERSPECIES = TRUE){
     if(termB)bgibbs[g,] <- bg[wB] # standardized, except nonStandard columns, 
                                   #       but not correlation scale for w
     
-    # unstandardize is there are standardized columns; otherwise bgibbs is unstandardized
+    # unstandardize if there are standardized columns; otherwise bgibbs is unstandardized
     
-    if( length(standRows) > 0 ){           
+    if( length(standRows) > 0 ){           # for xUnstand
       if(termB){
         bgU <- S2U%*%bg
         bgibbsUn[g,] <- bgU[wB]
@@ -6421,8 +6514,7 @@ gjamSensitivity <- function(output, group=NULL, nsim=100, PERSPECIES = TRUE){
         xf <- xdata[, facNames, drop=F]
       }
       
-      xpredMu <- .getUnstandX(formula, x = xpredMu, xrow, xmu = xmu, xsd = xsd,
-                              factorColumns = xf )$xu
+      xpredMu <- .getUnstandX(formula, x = xpredMu, xdata, xrow )$xu
       xpredSd[,xrow] <- xpredSd[,xrow]*matrix( xsd[xrow], n, length(xrow), byrow=T ) 
     }
     if(Q == 2)xscore <- mean( .getScoreNorm(x[,2],
@@ -6863,8 +6955,8 @@ designFull <- function( form, xdata ){
     if( length(con) == 0 )stop( 'group must be in colnames(ydata)' )
     nc  <- c(1:SO)[-con]
     sg  <- sigma[con,con] - 
-           sigma[con,nc]%*%solve(sigma[nc,nc])%*%sigma[nc,con]
-    sens <- egg[,con]%*%solve(sg)%*%t(egg[,con])
+           sigma[con,nc]%*%solveRcpp(sigma[nc,nc])%*%sigma[nc,con]
+    sens <- egg[,con]%*%solveRcpp(sg)%*%t(egg[,con])
   }
     
   list(ag = agg, eg = egg, sens = sens)
@@ -7401,6 +7493,17 @@ smooth.na <- function(x,y){
   list(xseq = xi, xmids = xmids, xbin = xc)
 }
 
+
+rmOther <- function( x ){
+  
+  wo <- grep('other', colnames(x))
+  if(length(wo) > 0)x   <- x[,-wo]
+  wo <- grep('other', rownames(x))
+  if(length(wo) > 0)x   <- x[-wo,]
+  x
+}
+
+
 .gjamPlot <- function(output, plotPars, verbose = FALSE){
   
   FACNAMES <- TRUE              # if not, factor names omitted from plots
@@ -7460,7 +7563,14 @@ smooth.na <- function(x,y){
   for(k in 1:length(inputs))assign( names(inputs)[k], inputs[[k]] )
   for(k in 1:length(missing))assign( names(missing)[k], missing[[k]] )
   for(k in 1:length(modelList))assign( names(modelList)[k], modelList[[k]] )
-  for(k in 1:length(parameters))assign( names(parameters)[k], parameters[[k]] )
+  
+  colnames( parameters$corMu ) <- rownames( parameters$corMu ) <- rownames( parameters$sigMu )
+  colnames( parameters$corSe ) <- rownames( parameters$corSe ) <- rownames( parameters$corSe )
+  
+  for(k in 1:length(parameters)){
+    pk <- rmOther( parameters[[k]] ) # 'other' class is not fitted
+    assign( names(parameters)[k], pk )
+  }
   for(k in 1:length(prediction))assign( names(prediction)[k], prediction[[k]] )
   for(k in 1:length(reductList))assign( names(reductList)[k], reductList[[k]] )
   
@@ -7473,28 +7583,35 @@ smooth.na <- function(x,y){
   
   if(!is.null(plotPars))for(k in 1:length(plotPars))assign( names(plotPars)[k], plotPars[[k]] )
   
+  # 'other' response is not fitted
+  
+  xnames <- colnames(x)
+  snames <- colnames(y)
+  names(typeNames) <- snames
+  
   if( !is.null(traitList) ){
     TRAITS <- T
     for(k in 1:length(traitList))assign( names(traitList)[k], traitList[[k]] )
   }
   if( 'trueValues' %in% names(plotPars) ){
     TV <- T
-    for(k in 1:length(trueValues))assign( names(trueValues)[k], trueValues[[k]] )
+    for(k in 1:length(trueValues)){
+      trueValues[[k]] <- rmOther( trueValues[[k]] )
+      assign( names(trueValues)[k], trueValues[[k]] )
+    }
     
     if(termB){
-      matchTrue <- match(colnames(betaMu),colnames(beta))
-      beta      <- beta[,matchTrue]
+      beta      <- beta[,colnames(betaMu)]
+      betaStn   <- betaStn[,colnames(betaMu)]
     }
     if(termR){
-      matchTrue <- match(colnames(rhoMu),colnames(rho))
-      rho    <- rho[,matchTrue]
+      rho    <- rho[,colnames(rhoMu)]
     }
-    
     if('sigma' %in% names(trueValues)){
-      sigma     <- sigma[matchTrue,matchTrue]
+      sigma     <- sigma[rownames(sigma),rownames(sigma)]
     }
     if('corSpec' %in% names(trueValues)){
-      corSpec   <- corSpec[matchTrue,matchTrue]
+      corSpec   <- corSpec[rownames(sigma),rownames(sigma)]
     }
   }
   if(!is.null(timeList)){
@@ -7559,8 +7676,6 @@ smooth.na <- function(x,y){
   if(length(omit) > 0)notOmit <- notOmit[-omit]
   SM       <- length(notOmit)
   
-  snames  <- colnames(y)
-  xnames  <- colnames(x)
   
   xSd <- 0
   if(Q > 1)xSd <- sqrt( diag(cov(x)) )
@@ -7679,9 +7794,9 @@ smooth.na <- function(x,y){
   if(termB){
     bgibbsShort <- bgibbs[simIndex,]
     betaLab     <- expression( paste('Coefficient matrix ',hat(bold(B))  ))
-    tmp    <- .omitChainCol(bgibbs,'other')
-    omitBC <- tmp$omit
-    keepBC <- tmp$keep
+#    tmp    <- .omitChainCol(bgibbs,'other')
+#    omitBC <- tmp$omit
+#    keepBC <- tmp$keep
   }
   if(termR){
     rhoLab   <- expression( paste('Growth matrix ',hat(bold(Rho))  ))
@@ -7728,20 +7843,20 @@ smooth.na <- function(x,y){
     
     if( termB ){
       
-      beta <- trueValues$beta
-      sc   <- beta*0
-      sc[ keepBC ] <- 1
+      beta <- rmOther( trueValues$betaStn )
+      sc   <- beta*0 + 1
+  #    sc[ keepBC ] <- 1
       sc <- specColor[ which(sc == 1, arr.ind=T)[,2] ]
       if( length(beta) < 100 ){
         
-        .gjamTrueVest( pchains = chains$bgibbs[burnin:ng,],
+        .gjamTrueVest( pchains = rmOther( chains$bgibbs[burnin:ng,]),
                        true = beta,
                        typeCode, allTypes, colors = sc, label = betaLab)
       } else {
         opt <- list(xlabel='true',
                     ylabel='estimate', nPerBin=length(beta)/10,
                     fill='lightblue', box.col=sc, POINTS=T, MEDIAN=F, add=F)
-        .plotObsPred(beta[,notOther],betaMu[,notOther], opt = opt)
+        .plotObsPred(beta,betaMu, opt = opt)
         abline(0,1,lty=2)
       }
     }
@@ -7751,7 +7866,7 @@ smooth.na <- function(x,y){
       rho <- trueValues$rho
       cols <- colF(S)
       if(length(rho) < 100){
-        lgibbs <- chains$lgibbs
+        lgibbs <- chains$lgibbs 
         gi     <- grep('intercept', colnames(lgibbs))
         xlim <- range(rho)
         ylim <- range(lgibbs)
@@ -7792,30 +7907,16 @@ smooth.na <- function(x,y){
       
       cols <- colF(2^ntypes)
       
-      corTrue <- corSpec
-      diag(corTrue) <- NA
-      if(length(other) > 0){
-        corTrue[other,] <- NA
-        corTrue[,other] <- NA
-      }
+      corTrue <- trueValues$corSpec
       
-      cindex <- which(lower.tri(corSpec,diag=T))            #location on matrix
-      pindex <- which(lower.tri(corSpec,diag=T),arr.ind=T)
-      if(!is.matrix(pindex)){
-        pindex <- matrix(pindex,1)
-      }
-
-      rindex <- which(is.finite(corTrue[cindex]))     #location in sgibbs
-      cindex <- cindex[rindex]
-      pindex <- pindex[drop=F,rindex,]   
+      rg   <- rmOther( rgibbsShort )
+      cmat <- matrix( unlist( strsplit( colnames(rg), '_' ) ), ncol = 2, byrow=T)
+      rci  <- apply( rg, 2, quantile, c(.5,.025,.975) )
+      
+      xlim <- range(c(-.1,.1, corTrue[cmat]),na.rm=T)
+      ylim <- range(c(-.1,.1, rg),na.rm=T)
       
       cols <- colF(ntypes + ntypes*(ntypes-1)/2)
-      
-      rg <- rgibbsShort
-      rg[rg == 1] <- NA
-      
-      xlim <- range(c(-.1,.1,corTrue[cindex]),na.rm=T)
-      ylim <- range(c(-.1,.1,rg),na.rm=T)
       
       add <- F
       m   <- 1
@@ -7828,96 +7929,29 @@ smooth.na <- function(x,y){
         
         wk <- which(typeNames == allTypes[k])
         wk <- wk[wk %in% notOther]
-        wp <- which(pindex[,1] %in% wk & pindex[,2] %in% wk)  
+        sk <- names(typeNames)[wk]
+        ic <- which(cmat[,1] %in% sk | cmat[,2] %in% sk )
         
-        if( length(wp) == 1 ){
-          
-          combNames <- c(combNames,allTypes[k])
-          
-          yci <- quantile( rgibbsShort[,rindex[wp]] ,c(.5,.025,.975))
-          xmu <- corSpec[matrix(pindex[wp,],1)]
-          if(!add){
-            plot(xmu,yci[1],xlim=xlim,ylim=ylim,
-                 pch=3,col=cols[m], xlab='true',ylab='')
-            add <- T
-          } else {
-            points(xmu,yci[1],pch=3,col=cols[m])
-          }
-          lines( c(xmu,xmu),yci[2:3],col=cols[m],lwd=2)
+        if( length(ic) < 100 ){
+          .gjamTrueVest(rci[, ic], true=corTrue[ cmat[ic, ] ],
+                        typeCode, allTypes, label=corLab, xlim=xlim, ylim=ylim,
+                        colors=cols[m], legend=F, add=add)
+          segments( corTrue[ cmat[ic, ] ], rci[2, ic], corTrue[ cmat[ic, ] ], rci[3, ic],
+                    col = cols[m], lwd=2)
+        } else {
+          box <- T
+          opt <- list(xlabel='true',
+                      ylabel='estimate', fill='lightblue',
+                      nPerBin=length(ic)/20, box.col=cols[m], POINTS=T,
+                      MEDIAN=F, add=add, atx = c(-1, 0, 1), aty = c(-1, 0, 1))
+          .plotObsPred(corTrue[ cmat[ic, ] ], corMu[ cmat[ic, ] ], opt = opt)
+          if(!add)abline(0,1,lty=2)
         }
-        
-        if(length(wp) > 1){
-          
-          if( length(wp) < 100 ){
-            .gjamTrueVest(rgibbsShort[,rindex[wp]],true=corSpec[cindex[wp]],
-                          typeCode,allTypes,label=corLab,xlim=xlim,ylim=ylim,
-                          colors=cols[m],legend=F,add=add)
-          } else {
-            box <- T
-            opt <- list(xlabel='true',
-                        ylabel='estimate', fill='lightblue',
-                        nPerBin=length(wp)/20, box.col=cols[m], POINTS=T,
-                        MEDIAN=F, add=add, atx = c(-1, 0, 1), aty = c(-1, 0, 1))
-            .plotObsPred(corSpec[cindex[wp]], corMu[cindex[wp]], opt = opt)
-            if(!add)abline(0,1,lty=2)
-          }
-          add <- T
-          combNames <- c(combNames,allTypes[k])
-          combCols  <- c(combCols,cols[m])
-          m <- m + 1
-        }
-        
-        if(k < length(allTypes)){
-          
-          for( j in (k+1):length(allTypes) ){
-            
-            wj <- which(typeNames == allTypes[j])
-            wj <- wj[wj %in% notOther]
-            wp <- which(pindex[,1] %in% wk & pindex[,2] %in% wj)
-            
-            if(length(wp) == 0){
-              wp <- which(pindex[,2] %in% wk & pindex[,1] %in% wj)
-            }
-            
-            if(length(wp) == 0)next
-            
-            if(length(wp) == 1){
-              yci <- quantile( rgibbsShort[,rindex[wp]] ,c(.5,.025,.975))
-              xmu <- corTrue[cindex[wp]]
-              if(!add){
-                plot(xmu,yci[1],xlim=xlim,ylim=ylim,
-                     pch=3,col=cols[m])
-              } else {
-                points(xmu,yci[1],pch=3,col=cols[m])
-              }
-              lines( c(xmu,xmu),yci[2:3],col=cols[m],lwd=2)
-              
-            } else {
-              if(!box){
-                .gjamTrueVest(rgibbsShort[,rindex[wp]],
-                             true=corTrue[cindex[wp]],
-                             typeCode,allTypes,add=add,colors=cols[m],
-                             legend=F, xlim=c(-.9,.9), ylim=c(-.9,.9))
-              } else {
-                opt <- list(nPerBin=length(wp)/10,
-                            box.col=cols[m], fill='white',POINTS=T,
-                            MEDIAN=F,add=add)
-                .plotObsPred(corSpec[cindex[wp]],corTrue[cindex[wp]],
-                             opt = opt)
-              }
-            }
-            m <- m + 1
-            
-            mnames    <- paste(allTypes[k],allTypes[j],sep='-')
-
-            combNames <- c(combNames,mnames)
-            combCols  <- c(combCols,rep(cols[m],length(mnames)))
-            add <- T
-          }
-        }
+        add <- T
+        m <- m + 1
       }
-      legend('topleft',combNames,text.col=cols,bty='n',ncol=3,cex=.7)
     }
+ 
     
     if('OC' %in% allTypes & 'cuts' %in% names(trueValues)){
       ctmp     <- cutMu #[,-1]
@@ -9229,7 +9263,7 @@ smooth.na <- function(x,y){
   if(S > 100)nsim <- 20
   
   if( !TIME | (TIME & termB) ){
-    tmp <- eigen( ematrix[notOther,notOther] )
+    tmp <- eigen( ematrix )
     
     eVecs   <- tmp$vectors
     eValues <- tmp$values
@@ -9402,7 +9436,7 @@ smooth.na <- function(x,y){
   .plotLabel('a) Data correlation',above=T, cex=1.7)
   
   if( !is.null(ematrix) ){
-    emm   <- ematrix[notOther,notOther]
+    emm   <- ematrix
     emm   <- .cov2Cor(emm)
   
     tmp   <- .clustMat(emm, SYM = T)#########
@@ -9709,7 +9743,7 @@ smooth.na <- function(x,y){
   if(!is.null(ematrix)){
     if(SAVEPLOTS)pdf( file=.outFile(outFolder,'clusterGridE.pdf') ) # start plot
     
-    mat1 <- .cov2Cor( ematrix[notOther,notOther] )
+    mat1 <- .cov2Cor( ematrix )
     main1 <- expression(paste('Species ',hat(E)))
     opt <- list(mainLeft=main1, leftClus=T, leftLab=T, 
                 colCode1 = specColor[notOther], rowCode = specColor[notOther],
@@ -10182,8 +10216,10 @@ smooth.na <- function(x,y){
     }else{
       effMat <- matrix(1, nx, S)
       effortSource <- 'ones'
-      print( 'no effort provided in newdata')
-      if( all( !c('CON','CA','CC','FC') %in% typeNames) )print( 'assumed equal to 1')
+
+      if( all( !c('CON','CA','CC','FC') %in% typeNames) ){
+        cat( '\nno effort provided in newdata, assumed equal to 1\n')
+      }
     }
     
     if(REDUCT){
@@ -10217,7 +10253,6 @@ smooth.na <- function(x,y){
     
     yp <- matrix(0,nx,S)
     colnames(yp) <- ynames
- #   yp <- y
     
     standMatSd <- output$inputs$standX[,'xsd']
     standMatMu <- output$inputs$standX[,'xmean']
@@ -10237,15 +10272,13 @@ smooth.na <- function(x,y){
     # standardize xnew
     tmp <- .getStandX(formula, xu = xnew, standRows, xmu = standMatMu, 
                       xsd = standMatSd )
-    xnew <- tmp$xstand
+    xnew <- tmp$xdataStand
     u2s  <- tmp$U2S
-    
-  #  if( tmp$FLAG )stop(' prediction data extrapolate too far from fitting data ')
     
     tmp <- .gjamXY(formula, xnew, yp, typeNames, 
                    notStandard = names(xnew), checkX = F, xscale = xscale,
                    verbose)
-    x    <- tmp$x                       # standardized with orignal mean/var
+    x    <- tmp$x                       # standardized with original mean/var
     
     beta <- output$parameters$betaStandXmu
     if( is.null(beta) ){
@@ -10254,7 +10287,7 @@ smooth.na <- function(x,y){
     }
     
     w  <- x%*%beta  
-   # wmaxData <- ymaxData/
+
     if( length(corCols) > 0 ){
       sg    <- output$parameters$sigMu
       alpha <- .sqrtMatrix( bg, sg, DIVIDE = T )
@@ -10309,25 +10342,7 @@ smooth.na <- function(x,y){
       wmat <- matrix( wmax, n, S, byrow = T )
       
       yp <- sweep( wmat, 1, rowSums(wmat, na.rm=T), '/')
- #     plo <- -yp*2
- #     phi <- yp*2
- #     phi[ phi > 1 ] <- 1
       yp <- round( yp*10000 )
-
-   #   if(ntt > 0){
-   #     for(i in 1:ntt){  ## normalize y 
-   #       wk      <- which( CCgroups == i )
-   #       wo      <- which(wk %in% notOther)
-   #       yp[,wk] <- w[,wk,drop=F]
-   #       yp[,wk][yp[,wk] < 0] <- 0
-   #       rs   <- rowSums(yp[,wk])
-   #       yp[,wk] <- yp[,wk]/rs
-   #  #     yp[,wk] <- .gjamCompW2Y(ypk, notOther=wo)$ww
-          
-   #       yp[,wk] <- ceiling( sweep(yp[,wk],1,ysum,'*') ) 
-   #       yp[,wk][ is.na(yp[,wk]) ] <- 0
-   #     }
-   #   }
     }
     
     
@@ -10472,8 +10487,11 @@ smooth.na <- function(x,y){
     ncc <- sort(unique( c(condCols, other) ))
     
     ploCond <- -ptmp[,-ncc, drop = F]/2
-    phiCond <- ptmp[,-ncc, drop = F]
+    phiCond <- 5*ptmp[,-ncc, drop = F]
     colnames(ploCond) <- colnames(phiCond) <- colnames(y)[-ncc]
+    
+    plo[,-ncc] <- ploCond
+    phi[,-ncc] <- phiCond
     
     # note: all are holdouts for newdata, no holdouts for COND
     
@@ -10486,19 +10504,14 @@ smooth.na <- function(x,y){
     holdoutN <- n
     holdoutIndex <- c(1:n)
     plo <- -ptmp*.5
-    phi <- ptmp
+    phi <- 5*ptmp
     ploHold <- -ptmp*.5
-    phiHold <- ptmp
+    phiHold <- 5*ptmp
   }
   
   if( SAMEY ){
     holdoutN <- 0
   }
- # if(COND){
- #   pmm <- max( pmax[condCols] )
- #   plo[,-condCols] <- -pmm*3
- #   phi[,-condCols]  <- pmm*3
- # }
   
   RD <- F                      # none or marginalize random effects into sigma
 #  if( REDUCT )RD <- T
@@ -10651,7 +10664,7 @@ smooth.na <- function(x,y){
       phi[,ordCols] <- cutg[cutHi]
     }
     
-    tmp <- .updateW( rows=1:n, x, w, y = yp, bg, sg, alpha, cutg, plo, phi, 
+    tmp <- .updateW( rows=1:nrow(x), x, w, y = yp, bg, sg, alpha, cutg, plo, phi, 
                      rndEff=rndEff, groupRandEff, sigmaerror, wHold )
     w   <- tmp$w
     yg  <- tmp$yp  # predictions
@@ -10663,10 +10676,8 @@ smooth.na <- function(x,y){
         gre <- groupRandEff
         if(length(gre) > 1)gre <- groupRandEff[,notOther]
         
-        tmp <- .conditionalMVN(w[,notOther], 
-                               muw[,notOther] + gre, 
-                               sg[notOther,notOther], 
-                               cdex = ddex)  # conditioning on w
+        tmp <- .conditionalMVN(w[,notOther], muw[,notOther] + gre, 
+                               sg[notOther,notOther], cdex = ddex)  # conditioning on w
         muc <- tmp$mu
         sgp <- tmp$vr #+ tiny
         
@@ -10683,7 +10694,7 @@ smooth.na <- function(x,y){
         }
         
         if( length(ddex) == 1 ){
-          wex <- matrix( .tnorm(n, ploCond, phiCond, muc, sqrt(sgp[1])) )
+          wex <- matrix( .tnorm(nrow(x), ploCond, phiCond, muc, sqrt(sgp[1])), ncol=1 )
         } else {
           
           lo <- ploCond
@@ -10750,7 +10761,7 @@ smooth.na <- function(x,y){
       yy[,wpa] <- round(yg[,wpa])
     }
     
-    if(length(notPA) > 0){
+    if( length(notPA) > 0 ){
       w0 <- which(yy[,notPA] <= 0)
       w1 <- which(yy[,notPA] > 0)
       yy[,notPA][w0] <- 0
@@ -10796,8 +10807,7 @@ smooth.na <- function(x,y){
   if(length(facNames) > 0){
     xf <- xdata[, facNames, drop=F]
   }
-  xunstand <- try( .getUnstandX( formula, x, standRows, xmu, xsd,
-                                 factorColumns = xf  ), T )
+  xunstand <- try( .getUnstandX( formula, x, xdata, standRows  ), T )
   if( inherits(xunstand,'try-error') ){
     xunstand <- NULL
     cat( '\nNote: prediction x is not full rank' )
@@ -11487,7 +11497,7 @@ smooth.na <- function(x,y){
     standX   <- standX[!standX %in% notStandard]
     
     tmp <- .getStandX( formula, xu = xdata0, standRows = standX )
-    xdata0 <- tmp$xstand
+    xdata0 <- tmp$xdataStand
     xmean  <- tmp$xmu
     xsd    <- tmp$xsd
     xscale <- rbind(xmean,xsd)
@@ -12564,13 +12574,17 @@ smooth.na <- function(x,y){
   allTypes <- sort(unique(typeCols))
   typeNames <- tmp$typeNames
   
+  names(typeCols) <- typeNames
+  
   if(is.null(x)){
-    x <- matrix( rnorm(n*Q,.1), n, Q)  
+    xm <- .5
+ #   if( any(c('PA','OC','CAT') %in% typeNames) )xm <- 0
+    x <- matrix( rnorm(n*Q, xm), n, Q)  
     x[,1] <- 1
   }
   
-  beta <- matrix(0, Q, sN)
-  ss   <- diag(.01,sN)    
+  beta <- matrix(.5, Q, sN)
+  ss   <- diag(.1,sN)    
   
   colnames(beta) <- colnames(ss) <- rownames(ss) <- snames
   wkeep <- numeric(0)
@@ -12589,15 +12603,15 @@ smooth.na <- function(x,y){
       cnames <- c(cnames,colnames(beta)[wk])
     }
     if(typeFull[wk[1]] %in% c('continuous','contAbun')){
-      diag(ss)[wk] <- .4
+      diag(ss)[wk] <- 1
       beta[,wk]    <- runif(Q*nk,-.5,2)
       wkeep <- c(wkeep,wk)
       tnames <- c(tnames,typeNames[wk])
       cnames <- c(cnames,colnames(beta)[wk])
     }
     if(typeFull[wk[1]] == 'discAbun'){
-      diag(ss)[wk] <- .5
-      beta[,wk]    <- runif(Q*nk,-1,1)
+      diag(ss)[wk] <- 1
+      beta[,wk]    <- runif(Q*nk,-.5,1.5)
       wkeep <- c(wkeep,wk)
       tnames <- c(tnames,typeNames[wk])
       cnames <- c(cnames,colnames(beta)[wk])
@@ -12678,24 +12692,23 @@ smooth.na <- function(x,y){
           
         } else {
           
-          bb <- matrix( rnorm(Q*nki,0,1/nki), Q, nki)
-          bb[1,] <- bb[1,]*0
-            
+          bb <- matrix( rnorm(Q*nki, .5, 1/nki), Q, nki)
+          
+          w  <- x%*%bb
+          
+          for(m in 1:3){
+            w1 <- w
+            w1[w < 0] <- 0
+            w2 <- sweep(w1,1,rowSums(w1),'/')
+            w[w >= 0] <- w2[w >= 0]
+            bb <- solveRcpp(crossprod(x))%*%crossprod(x,w)
             w  <- x%*%bb
-            
-            for(m in 1:3){
-              w1 <- w
-              w1[w < 0] <- 0
-              w2 <- sweep(w1,1,rowSums(w1),'/')
-              w[w >= 0] <- w2[w >= 0]
-              bb <- solveRcpp(crossprod(x))%*%crossprod(x,w)
-              w  <- x%*%bb
-            }
-
+          }
+          
           wkeep <- c(wkeep,wki)
           tnames <- c(tnames,typeNames[wki])
           cnames <- c(cnames,colnames(beta)[wki])
-          diag(ss)[wk] <- .1/nk^2.5
+          diag(ss)[wk] <- .1/nk
           beta[,wki] <- bb
         }
       }
@@ -12757,12 +12770,14 @@ smooth.na <- function(x,y){
   CCgroups  <- tmp$CCgroups
   FCgroups  <- tmp$FCgroups
   CATgroups <- tmp$CATgroups
+  
       
   tmp <- .gjamGetTypes(typeNames)
   typeCols  <- tmp$typeCols
   typeFull  <- tmp$typeFull
   typeCode  <- tmp$TYPES[typeCols]
   allTypes  <- sort(unique(typeCols))
+  names(typeCols) <- typeNames
   
   S      <- length(typeNames)
   xnames <- paste('x',1:Q,sep='')
@@ -12771,10 +12786,16 @@ smooth.na <- function(x,y){
   SS[lower.tri(SS)] <- runif(S*(S - 1)/2,-.98,.98)
   SS[upper.tri(SS)] <- SS[lower.tri(SS)]
   
-  SS    <- cor( .rMVN(S+5,0,SS) )
-  SS    <- .cor2Cov(diag(sig),SS)
+  RR    <- .rMVN(S+5,0,SS) 
+  RR    <- cov( .rMVN(S+5,0,sig) )
+  sigma <- .rwish(S+2,RR)/(S + 2)
   
-  sigma <- .rwish(S+2,SS)/(S + 2)
+  ####################################3
+  #SS    <- cor( RR )
+  #SS    <- .cor2Cov(diag(sig),SS)
+  #sigma <- .rwish(S+2,SS)/(S + 2)
+  ####################################
+  
   
   corCols <- which(typeNames %in% c('PA','OC','CAT'))
   if(length(corCols) > 0){
@@ -12867,8 +12888,11 @@ smooth.na <- function(x,y){
         } else {
           
           noto <- c(1:nki)[-grep('other',snames[wki])]
+          ww   <- w[,wki]
           
-          ww     <- w[,wki]
+          bc  <- beta
+          wmu <- x%*%beta
+          wv  <- w
           
           for(j in 1:5){
             
@@ -12882,14 +12906,24 @@ smooth.na <- function(x,y){
             
             ww[yplus] <- yk[yplus]
             
-            bb  <- solveRcpp(crossprod(x))%*%crossprod(x,ww)
-            muk <- x%*%bb
-            ww  <- muk + .rMVN(n,0,sigma)[,wki]
+            bc[,wki]  <- solveRcpp(crossprod(x))%*%crossprod(x,ww)
+            wmu       <- x%*%bc
+      #      wmu[,wki] <- muk
+            ww  <- wmu[,wki] + .rMVN(n,0,sigma)[,wki]
+            
+      #      wv[,wki]  <- ww
+      #      wmu[,wki] <- muk
+            
+      #      tmp <- .conditionalMVN(wv, wmu, sigma, cdex = wki)  # conditioning on w
+      #      muc <- tmp$mu
+      #      sgp <- tmp$vr #+ tiny
+      #      ww  <- muc + .rMVN(n,0,sgp)
+            
           }
           zk     <- ww*0 + 1
           zk[w0] <- 0
           w[,wki] <- ww  
-          beta[,wki] <- bb
+          beta[,wki] <- bc[,wki]
           
           if(typeFull[wk[1]] == 'fracComp'){
             y[,wki] <- yk
@@ -12900,7 +12934,7 @@ smooth.na <- function(x,y){
             mm <- S*20
             a  <- 4
             b  <- mm/a
-            ee <- rpois(n,rgamma(n,shape=a,scale=b))
+            ee <- rpois(n,rgamma(n, shape=a, scale=b))
             yy <- sweep(yk,1,ee,'*')
             
             ww <- ceiling(yy)
@@ -12990,21 +13024,25 @@ smooth.na <- function(x,y){
     w[,wo] <- wss[,wo]
   }
       
-  beta <- solveRcpp(crossprod(x))%*%crossprod(x,w)  
-  
-  if( 'discAbun' %in% typeFull ){
- #   wk <- which( typeFull == 'discAbun' )
- #   mm <- x%*%beta
- #   w[,wk]  <- mm[,wk] + .rMVN(n,0,sigma)[,wk]
-  }
-
-  sigma[notOther,notOther] <- var(w[,notOther] - x%*%beta[,notOther]) 
-  sigma[other,] <- sigma[,other] <- 0
-  
-  
+ # beta <- solveRcpp(crossprod(x))%*%crossprod(x,w)  
+ # sigma[notOther,notOther] <- var(w[,notOther] - x%*%beta[,notOther]) 
+ # sigma[other,] <- sigma[,other] <- 0
   diag(sigma)[other] <- diag(sig)[other]
   
+  xnames[1]      <- 'intercept'
   ydata <- data.frame(y)
+  colnames(y)    <- snames
+  colnames(beta) <- rownames(sigma) <- colnames(sigma) <- snames
+  colnames(x)    <- rownames(beta) <- xnames
+  
+  form <- as.formula( paste('~ ',paste(colnames(x)[-1],collapse='+' )) )
+  
+  standRows   <- xnames[-1]
+  
+  tmp <- .getStandX(formula = form, xu = x, standRows )
+  betaStn <- tmp$U2S%*%beta
+  rownames(betaStn) <- xnames
+
   typeFrame <- typeNames
   
   if('CAT' %in% typeNames){
@@ -13024,17 +13062,10 @@ smooth.na <- function(x,y){
     wmiss <- which(is.na(x),arr.ind=T)
     nmiss <- nrow(wmiss)
   }
-  
-  xnames[1]      <- 'intercept'
-  colnames(y)    <- snames
-  colnames(beta) <- rownames(sigma) <- colnames(sigma) <- snames
-  colnames(x)    <- rownames(beta) <- xnames
-  
-  form <- as.formula( paste('~ ',paste(colnames(x)[-1],collapse='+' )) )
 
   list(formula = form, xdata = data.frame(x), ydata = ydata,
        y = y, w = w,  typeNames = typeFrame, typeY = typeNames, effort = effort,
-       trueValues = list(beta = beta, sigma = sigma, 
+       trueValues = list(beta = beta, betaStn = betaStn, sigma = sigma, 
                          corSpec = .cov2Cor(sigma), cuts = cuts))
 }
 
@@ -13758,10 +13789,10 @@ smooth.na <- function(x,y){
       tiny <- 1e-5
       XX   <- crossprod(X)
       diag(XX) <- diag(XX)*(1 + tiny)          ## ridge here
-      IXX   <- try( solve(XX), T )
+      IXX   <- try( solveRcpp(XX), T )
       if( inherits(IXX,'try-error') ){
         diag(XX) <- diag(XX) + 1.001*diag(XX)
-        IXX <- solve(XX)
+        IXX <- solveRcpp(XX)
       }
       
       omega <- sig*IXX
@@ -13803,7 +13834,7 @@ smooth.na <- function(x,y){
           M1 <- omega[krow,notk, drop=F]/omega[notk,notk]
         }else{
          
-          OI <- try( solve(omega[notk,notk]), T)
+          OI <- try( solveRcpp(omega[notk,notk]), T)
           if( inherits(OI,'try-error') ){
             OI <- diag(1/diag(omega[notk,notk]))
           }
@@ -13873,8 +13904,8 @@ smooth.na <- function(x,y){
           IM <- CC[wp,wp] - CC[wp,wc]%*%MM%*%CC[wc,wp] # inverse of M_{wp,wp} -> large
           MU <- t( WIX[wc] - smat[wc,wp]%*%IM%*%WIX[wp] )
           
-        }else{                           # not sparse
-          M1   <- smat[wc,wp]%*%solve(smat[wp,wp])
+        }else{                                         # not sparse
+          M1   <- smat[wc,wp]%*%solveRcpp(smat[wp,wp])
           MU   <- t( WIX[wc] - M1%*%WIX[wp] )
           MM   <- smat[wc,wc] - M1%*%smat[wp,wc]
         }

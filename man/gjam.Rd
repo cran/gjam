@@ -110,9 +110,9 @@ If \bold{traits} are modeled, then \code{parameters} will additionally include \
 \examples{
 \dontrun{
 ## combinations of scales
-types <- c('DA','DA','OC','OC','OC','OC','CC','CC','CC','CC','CC','CA','CA','PA','PA')         
+types <- c('DA','DA','OC','OC','OC','OC','CON','CON','CON','CON','CON','CA','CA','PA','PA')         
 f    <- gjamSimData(S = length(types), typeNames = types)
-ml   <- list(ng = 50, burnin = 5, typeNames = f$typeNames)
+ml   <- list(ng = 500, burnin = 50, typeNames = f$typeNames)
 out  <- gjam(f$formula, f$xdata, f$ydata, modelList = ml)
 summary(out)
 

@@ -12,7 +12,7 @@ gjamPriorTemplate <- function(formula, xdata, ydata, lo = NULL, hi = NULL){
   
   if( !is.character(formula) )formula <- as.formula( formula )
   
-  x      <- model.matrix( formula, xdata)
+  x      <- model.matrix( formula, xdata )
   S      <- ncol(ydata)                    # no. responses
   Q      <- ncol(x)                        # no. predictors
   xnames <- colnames(x)

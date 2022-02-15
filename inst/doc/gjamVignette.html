@@ -12,7 +12,7 @@
 
 <meta name="author" content="James S. Clark" />
 
-<meta name="date" content="2022-01-09" />
+<meta name="date" content="2022-02-15" />
 
 <title>Generalized joint attribute modeling - gjam</title>
 
@@ -141,7 +141,7 @@ code span.wa { color: #60a0b0; font-weight: bold; font-style: italic; } /* Warni
 
 <h1 class="title toc-ignore">Generalized joint attribute modeling - gjam</h1>
 <h4 class="author"><a href="http://sites.nicholas.duke.edu/clarklab/">James S. Clark</a></h4>
-<h4 class="date">2022-01-09</h4>
+<h4 class="date">2022-02-15</h4>
 
 
 <div id="TOC">
@@ -174,6 +174,7 @@ code span.wa { color: #60a0b0; font-weight: bold; font-style: italic; } /* Warni
 <li><a href="#missing-data-out-of-sample-prediction"><span style="color:teal">missing data, out-of-sample prediction</span></a></li>
 <li><a href="#prediction-with-heterogenous-effort"><span style="color:teal">prediction with heterogenous effort</span></a></li>
 <li><a href="#conditional-prediction"><span style="color:teal">conditional prediction</span></a></li>
+<li><a href="#conditional-parameters"><span style="color:teal">conditional parameters</span></a></li>
 <li><a href="#presence-only-data-with-effort"><span style="color:teal">presence-only data with effort</span></a></li>
 </ul></li>
 <li><a href="#dimension-reduction"><span style="color:darkgreen">dimension reduction</span></a>
@@ -211,7 +212,7 @@ code span.wa { color: #60a0b0; font-weight: bold; font-style: italic; } /* Warni
 </ul>
 </div>
 
-<p><strong>version 2.5.1</strong></p>
+<p><strong>version 2.5.2</strong></p>
 <p><strong>citation:</strong></p>
 <p><em>Clark, J.S., D. Nemergut, B. Seyednasrollah, P. Turner, and S. Zhang. 2017. Generalized joint attribute modeling for biodiversity analysis: Median-zero, multivariate, multifarious data, <a href="https://esajournals.onlinelibrary.wiley.com/doi/full/10.1002/ecm.1241">Ecological Monographs, 87, 34–56.</a></em></p>
 <p><a href="http://sites.nicholas.duke.edu/clarklab/code/">website</a></p>
@@ -971,23 +972,23 @@ code span.wa { color: #60a0b0; font-weight: bold; font-style: italic; } /* Warni
 <div id="categorical-data" class="section level2">
 <h2><span style="color:teal">categorical data</span></h2>
 <p>Categorical data have levels within groups. The levels are unordered. The columns in <code>ydata</code> that hold categorical responses are declared as <code>typeNames = &quot;CAT&quot;</code>. In observation vector <span class="math inline">\(\mathbf{y}_{i}\)</span> there are elements for one less than the number of factor levels. Suppose that observations are obtained on attributes of individual plants, each plant being an observation. The group <code>leaf</code> type might have four levels broadleaf decidious <code>bd</code>, needleleaf decidious <code>nd</code>, broadleaf evergreen <code>be</code>, and needleaf evergreen <code>ne</code>. A second group <code>xylem</code> anatomy might have three levels diffuse porous <code>dp</code>, ring porous <code>rp</code>, and tracheid <code>tr</code>. In both cases I assign the last class to be a reference class, <code>other</code>. Ten rows of the response matrix data might look like this:</p>
-<pre><code>##   leaf xylem
-## 1   nd    dp
-## 2   bd    dp
-## 3   nd other
-## 4   nd other
-## 5   be    dp
-## 6   bd other
-## 7   bd    dp</code></pre>
+<pre><code>##    leaf xylem
+## 1    nd other
+## 2    be    dp
+## 3    be    rp
+## 4 other other
+## 5 other    dp
+## 6    nd    rp
+## 7    nd    rp</code></pre>
 <p>This <code>data.frame ydata</code> becomes this response matrix <code>y</code>:</p>
 <pre><code>##      leaf_bd leaf_nd leaf_be leaf_other xylem_dp xylem_rp xylem_other
-## [1,]       0       1       0          0        1        0           0
-## [2,]       1       0       0          0        1        0           0
-## [3,]       0       1       0          0        0        0           1
-## [4,]       0       1       0          0        0        0           1
-## [5,]       0       0       1          0        1        0           0
-## [6,]       1       0       0          0        0        0           1
-## [7,]       1       0       0          0        1        0           0</code></pre>
+## [1,]       0       1       0          0        0        0           1
+## [2,]       0       0       1          0        1        0           0
+## [3,]       0       0       1          0        0        1           0
+## [4,]       0       0       0          1        0        0           1
+## [5,]       0       0       0          1        1        0           0
+## [6,]       0       1       0          0        0        1           0
+## [7,]       0       1       0          0        0        1           0</code></pre>
 <p><code>gjam</code> expands the two groups into four and three columns in <code>y</code>, respectively. As for composition data there is one redundant column for each group. Here is an example with simulated data, having two categorical groups:</p>
 <div class="sourceCode" id="cb43"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb43-1"><a href="#cb43-1" aria-hidden="true" tabindex="-1"></a>types <span class="ot">&lt;-</span> <span class="fu">c</span>( <span class="st">&#39;CAT&#39;</span>, <span class="st">&#39;CAT&#39;</span> )</span>
 <span id="cb43-2"><a href="#cb43-2" aria-hidden="true" tabindex="-1"></a>f     <span class="ot">&lt;-</span> <span class="fu">gjamSimData</span>( <span class="at">n =</span> <span class="dv">3000</span>, <span class="at">S =</span> <span class="fu">length</span>(types), <span class="at">typeNames =</span> types )</span>
@@ -1182,6 +1183,35 @@ code span.wa { color: #60a0b0; font-weight: bold; font-style: italic; } /* Warni
 <span id="cb54-13"><a href="#cb54-13" aria-hidden="true" tabindex="-1"></a>        <span class="at">text.col =</span> cols[<span class="dv">1</span><span class="sc">:</span><span class="dv">2</span>], <span class="at">bty=</span><span class="st">&#39;n&#39;</span> )</span></code></pre></div>
 <p>Again, the conditional prediction can differ from the unconditional one, due to the covariances between species.</p>
 </div>
+<div id="conditional-parameters" class="section level2">
+<h2><span style="color:teal">conditional parameters</span></h2>
+<p>The parameters used for conditional prediction can be obtained with the function <code>gjamConditionalParameters</code>. The coeffficients come from a partition of the response vector as <span class="math inline">\(\mathbf{w}&#39; = [\mathbf{u}, \mathbf{v}]\)</span> with coefficient and covariance matrices</p>
+<p><span class="math display">\[
+\mathbf{B} = 
+\begin{bmatrix}
+\mathbf{B}_u \\
+\mathbf{B}_v \\
+\end{bmatrix}, 
+\Sigma =
+\begin{bmatrix}
+\Sigma_{uu} &amp; \Sigma_{uv} \\
+\Sigma_{vu} &amp; \Sigma_{vv} \\
+\end{bmatrix}
+\]</span></p>
+<p>Write the conditional distribution for responses in <span class="math inline">\(\mathbf{u}\)</span> conditioned on values set for the others in <span class="math inline">\(\mathbf{v}\)</span>,</p>
+<p><span class="math display">\[
+\begin{aligned}
+\mathbf{u}|\mathbf{v} &amp;\sim MVN \left( \mathbf{C}\mathbf{x} + \mathbf{A}\mathbf{v}, \mathbf{P} \right) \\
+\mathbf{A} &amp;= \Sigma_{uv} \Sigma^{-1}_{vv} \\
+\mathbf{C} &amp;= \mathbf{B}_u - \mathbf{A}\mathbf{B}_v \\
+\mathbf{P} &amp;= \Sigma_{uu} - \mathbf{A}\Sigma_{vu}
+\end{aligned}
+\]</span> <code>gjamConditionalParameters</code> takes the fitted <code>gjam</code> object and returns these three matrices, each as a matrix of posterior means and standard errors and as a table with 95% credible intervals. The <code>vector conditionOn</code> holds the column names in <code>ydata</code> for the variables that I want to condition on, i.e., in the subvector <span class="math inline">\(\mathbf{v}\)</span>,</p>
+<div class="sourceCode" id="cb55"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb55-1"><a href="#cb55-1" aria-hidden="true" tabindex="-1"></a><span class="fu">conditionalParameters</span>( output, <span class="at">conditionOn =</span> <span class="fu">c</span>(<span class="st">&#39;S1&#39;</span>,<span class="st">&#39;S4&#39;</span>) )</span></code></pre></div>
+<p>Matrix <span class="math inline">\(\mathbf{A}\)</span> is like a regression matrix on species. It is a <span class="math inline">\(S_u \times S_v\)</span> matrix holding the effects of each response in <code>conditionOn</code> (<span class="math inline">\(\mathbf{v}\)</span>) on the other columns (<span class="math inline">\(\mathbf{u}\)</span>).</p>
+<p>Matrix <span class="math inline">\(\mathbf{C}\)</span> are regression coefficients on predictors in <span class="math inline">\(\mathbf{x}\)</span>, after extracting the contribution from other species. It is a <span class="math inline">\(S_u \times Q\)</span> matrix.</p>
+<p>Matrix <span class="math inline">\(\mathbf{P}\)</span> is the <span class="math inline">\(S_u \times S_u\)</span> conditional covariance.</p>
+</div>
 <div id="presence-only-data-with-effort" class="section level2">
 <h2><span style="color:teal">presence-only data with effort</span></h2>
 <p>If I have a model for effort, then incidence data can have a likelihood, i.e., a probability assigned to observations that are aggregated into groups of known effort. I cannot model absence for the aggregate data unless I know how much effort was devoted to searching for it. Effort is widely known to have large spatio-temporal and taxonomic bias.</p>
@@ -1201,11 +1231,11 @@ code span.wa { color: #60a0b0; font-weight: bold; font-style: italic; } /* Warni
 <p>In gjam, the total number of covariance parameter estimates is reduced to <span class="math inline">\(N \times r\)</span>, where <span class="math inline">\(r &lt; N &lt;&lt; S\)</span>. The integer <span class="math inline">\(N\)</span> represents the potential number of response groups. The integer <span class="math inline">\(r\)</span> is the dimensionality of each group. In other words, large <em>N</em> means more groups, and large <em>r</em> increases the flexibility of those <em>N</em> groups.</p>
 <p>Dimension reduction is invoked in one of two ways. <strong>The first way</strong> is automatic, when i) a data set includes more species than can be fitted given sample size <em>n</em> or when ii) <em>S</em> is too large irrespective of <em>n</em>.</p>
 <p><strong>A second way</strong> to invoke dimension reduction is to specify it in <code>modelList</code>, through the <code>list reductList</code>. Here is an example using simulated data, where the number of species is twice the number of observations.</p>
-<div class="sourceCode" id="cb55"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb55-1"><a href="#cb55-1" aria-hidden="true" tabindex="-1"></a>f   <span class="ot">&lt;-</span> <span class="fu">gjamSimData</span>( <span class="at">n =</span> <span class="dv">100</span>, <span class="at">S =</span> <span class="dv">200</span>, <span class="at">typeNames=</span><span class="st">&#39;CA&#39;</span> )</span>
-<span id="cb55-2"><a href="#cb55-2" aria-hidden="true" tabindex="-1"></a>ml  <span class="ot">&lt;-</span> <span class="fu">list</span>( <span class="at">ng =</span> <span class="dv">2000</span>, <span class="at">burnin =</span> <span class="dv">500</span>, <span class="at">typeNames =</span> f<span class="sc">$</span>typeNames, </span>
-<span id="cb55-3"><a href="#cb55-3" aria-hidden="true" tabindex="-1"></a>            <span class="at">reductList =</span> <span class="fu">list</span>(<span class="at">r =</span> <span class="dv">5</span>, <span class="at">N =</span> <span class="dv">20</span>), <span class="at">PREDICTX =</span> F )  </span>
-<span id="cb55-4"><a href="#cb55-4" aria-hidden="true" tabindex="-1"></a>out <span class="ot">&lt;-</span> <span class="fu">gjam</span>( f<span class="sc">$</span>formula, f<span class="sc">$</span>xdata, f<span class="sc">$</span>ydata, <span class="at">modelList =</span> ml )</span>
-<span id="cb55-5"><a href="#cb55-5" aria-hidden="true" tabindex="-1"></a><span class="fu">gjamPlot</span>( <span class="at">output =</span> out, <span class="at">plotPars =</span> <span class="fu">list</span>(<span class="at">trueValues =</span> f<span class="sc">$</span>trueValues) )</span></code></pre></div>
+<div class="sourceCode" id="cb56"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb56-1"><a href="#cb56-1" aria-hidden="true" tabindex="-1"></a>f   <span class="ot">&lt;-</span> <span class="fu">gjamSimData</span>( <span class="at">n =</span> <span class="dv">100</span>, <span class="at">S =</span> <span class="dv">200</span>, <span class="at">typeNames=</span><span class="st">&#39;CA&#39;</span> )</span>
+<span id="cb56-2"><a href="#cb56-2" aria-hidden="true" tabindex="-1"></a>ml  <span class="ot">&lt;-</span> <span class="fu">list</span>( <span class="at">ng =</span> <span class="dv">2000</span>, <span class="at">burnin =</span> <span class="dv">500</span>, <span class="at">typeNames =</span> f<span class="sc">$</span>typeNames, </span>
+<span id="cb56-3"><a href="#cb56-3" aria-hidden="true" tabindex="-1"></a>            <span class="at">reductList =</span> <span class="fu">list</span>(<span class="at">r =</span> <span class="dv">5</span>, <span class="at">N =</span> <span class="dv">20</span>), <span class="at">PREDICTX =</span> F )  </span>
+<span id="cb56-4"><a href="#cb56-4" aria-hidden="true" tabindex="-1"></a>out <span class="ot">&lt;-</span> <span class="fu">gjam</span>( f<span class="sc">$</span>formula, f<span class="sc">$</span>xdata, f<span class="sc">$</span>ydata, <span class="at">modelList =</span> ml )</span>
+<span id="cb56-5"><a href="#cb56-5" aria-hidden="true" tabindex="-1"></a><span class="fu">gjamPlot</span>( <span class="at">output =</span> out, <span class="at">plotPars =</span> <span class="fu">list</span>(<span class="at">trueValues =</span> f<span class="sc">$</span>trueValues) )</span></code></pre></div>
 <p>The full matrix is not stored, so gjam needs time to construct versions of it as needed. The setting <code>PREDICTX = F</code> can be included in <code>modelList</code> to speed up computation, when prediction of inputs is not of interest.</p>
 <p>The massive reduction in rank of the covariance matrix means that the we cannot estimate the ‘true’ version of <span class="math inline">\(\boldsymbol{\Sigma}\)</span>, particularly given the fact that the simulator does not generate a structured <span class="math inline">\(\boldsymbol{\Sigma}\)</span>. These appear as highly structured <code>GRIDPLOTS</code> for the posterior mean estimates of the correlation matrix <span class="math inline">\(\mathbf{R}\)</span>. However, we can still obtain estimates of <span class="math inline">\(\mathbf{B}\)</span> and predictions of <span class="math inline">\(\mathbf{Y}\)</span> that are close to true values.</p>
 <p>To override the automatic dimension reduction for a large response matrix, specify <code>modelList$REDUCT &lt;- FALSE</code>.</p>
@@ -1213,146 +1243,146 @@ code span.wa { color: #60a0b0; font-weight: bold; font-style: italic; } /* Warni
 <h2><span style="color:teal"><em>big-S</em> composition data: fungal endophytes</span></h2>
 <p>Microbiome data are often <em>big-S, small-n</em>; with thousands of response variables, columns in <span class="math inline">\(\mathbf{Y}\)</span> (e.g., OTUs). They are also composition count (<code>&#39;CC&#39;</code>) data, discrete counts, but not related to absolute abundance; they are meaningful in a relative sense. Because data only inform about relative abundance, there is information for only <span class="math inline">\(S - 1\)</span> species. If there are thousands of OTUs, most of which are rare and thus not explained by the model, consider aggregating the many rare types into a single <code>other</code> class.</p>
 <p>Fungal endophytes were sequenced on host tree seedlings (Hersh et al. 2016). In the data set <code>fungEnd</code> there is a compressed version of responses <code>yDeZero</code> containing OTU counts, a <code>data.frame</code> <code>xdata</code> containing predictors, and <code>status</code>, a vector of host responses, 0 for morbid, 1 for no signs of morbidity. Several histograms show the overwhelming numbers of zeros. Here we extract the data, stored in de-zeroed format, and generate some plots:</p>
-<div class="sourceCode" id="cb56"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb56-1"><a href="#cb56-1" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(repmis)</span>
-<span id="cb56-2"><a href="#cb56-2" aria-hidden="true" tabindex="-1"></a>d <span class="ot">&lt;-</span> <span class="st">&quot;https://github.com/jimclarkatduke/gjam/blob/master/fungEnd.RData?raw=True&quot;</span></span>
-<span id="cb56-3"><a href="#cb56-3" aria-hidden="true" tabindex="-1"></a><span class="fu">source_data</span>(d)</span>
-<span id="cb56-4"><a href="#cb56-4" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb56-5"><a href="#cb56-5" aria-hidden="true" tabindex="-1"></a>xdata  <span class="ot">&lt;-</span> fungEnd<span class="sc">$</span>xdata</span>
-<span id="cb56-6"><a href="#cb56-6" aria-hidden="true" tabindex="-1"></a>otu    <span class="ot">&lt;-</span> <span class="fu">gjamReZero</span>(fungEnd<span class="sc">$</span>yDeZero)</span>
-<span id="cb56-7"><a href="#cb56-7" aria-hidden="true" tabindex="-1"></a>status <span class="ot">&lt;-</span> fungEnd<span class="sc">$</span>status</span>
-<span id="cb56-8"><a href="#cb56-8" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb56-9"><a href="#cb56-9" aria-hidden="true" tabindex="-1"></a><span class="fu">par</span>( <span class="at">mfrow=</span><span class="fu">c</span>(<span class="dv">1</span>,<span class="dv">3</span>), <span class="at">bty=</span><span class="st">&#39;n&#39;</span> )</span>
-<span id="cb56-10"><a href="#cb56-10" aria-hidden="true" tabindex="-1"></a><span class="fu">hist</span>( status, <span class="at">main=</span><span class="st">&#39;Host condition (morbid = 0)&#39;</span>, <span class="at">ylab =</span> <span class="st">&#39;Host obs&#39;</span> )</span>
-<span id="cb56-11"><a href="#cb56-11" aria-hidden="true" tabindex="-1"></a><span class="fu">hist</span>( otu, <span class="at">nclass=</span><span class="dv">100</span>, <span class="at">ylab =</span> <span class="st">&quot;Reads&quot;</span>, <span class="at">main =</span> <span class="st">&quot;OTU&#39;s&quot;</span> )</span>
-<span id="cb56-12"><a href="#cb56-12" aria-hidden="true" tabindex="-1"></a>nobs <span class="ot">&lt;-</span> <span class="fu">gjamTrimY</span>( otu, <span class="at">minObs =</span> <span class="dv">1</span>, <span class="at">OTHER =</span> F )<span class="sc">$</span>nobs</span>
-<span id="cb56-13"><a href="#cb56-13" aria-hidden="true" tabindex="-1"></a><span class="fu">hist</span>( nobs<span class="sc">/</span><span class="fu">ncol</span>(otu), <span class="at">nclass=</span><span class="dv">100</span>, <span class="at">xlab =</span> <span class="st">&#39;Fraction of observations&#39;</span>, </span>
-<span id="cb56-14"><a href="#cb56-14" aria-hidden="true" tabindex="-1"></a>      <span class="at">ylab =</span> <span class="st">&#39;Frequency&#39;</span>, <span class="at">main=</span><span class="st">&#39;Incidence&#39;</span> )</span></code></pre></div>
+<div class="sourceCode" id="cb57"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb57-1"><a href="#cb57-1" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(repmis)</span>
+<span id="cb57-2"><a href="#cb57-2" aria-hidden="true" tabindex="-1"></a>d <span class="ot">&lt;-</span> <span class="st">&quot;https://github.com/jimclarkatduke/gjam/blob/master/fungEnd.RData?raw=True&quot;</span></span>
+<span id="cb57-3"><a href="#cb57-3" aria-hidden="true" tabindex="-1"></a><span class="fu">source_data</span>(d)</span>
+<span id="cb57-4"><a href="#cb57-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb57-5"><a href="#cb57-5" aria-hidden="true" tabindex="-1"></a>xdata  <span class="ot">&lt;-</span> fungEnd<span class="sc">$</span>xdata</span>
+<span id="cb57-6"><a href="#cb57-6" aria-hidden="true" tabindex="-1"></a>otu    <span class="ot">&lt;-</span> <span class="fu">gjamReZero</span>(fungEnd<span class="sc">$</span>yDeZero)</span>
+<span id="cb57-7"><a href="#cb57-7" aria-hidden="true" tabindex="-1"></a>status <span class="ot">&lt;-</span> fungEnd<span class="sc">$</span>status</span>
+<span id="cb57-8"><a href="#cb57-8" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb57-9"><a href="#cb57-9" aria-hidden="true" tabindex="-1"></a><span class="fu">par</span>( <span class="at">mfrow=</span><span class="fu">c</span>(<span class="dv">1</span>,<span class="dv">3</span>), <span class="at">bty=</span><span class="st">&#39;n&#39;</span> )</span>
+<span id="cb57-10"><a href="#cb57-10" aria-hidden="true" tabindex="-1"></a><span class="fu">hist</span>( status, <span class="at">main=</span><span class="st">&#39;Host condition (morbid = 0)&#39;</span>, <span class="at">ylab =</span> <span class="st">&#39;Host obs&#39;</span> )</span>
+<span id="cb57-11"><a href="#cb57-11" aria-hidden="true" tabindex="-1"></a><span class="fu">hist</span>( otu, <span class="at">nclass=</span><span class="dv">100</span>, <span class="at">ylab =</span> <span class="st">&quot;Reads&quot;</span>, <span class="at">main =</span> <span class="st">&quot;OTU&#39;s&quot;</span> )</span>
+<span id="cb57-12"><a href="#cb57-12" aria-hidden="true" tabindex="-1"></a>nobs <span class="ot">&lt;-</span> <span class="fu">gjamTrimY</span>( otu, <span class="at">minObs =</span> <span class="dv">1</span>, <span class="at">OTHER =</span> F )<span class="sc">$</span>nobs</span>
+<span id="cb57-13"><a href="#cb57-13" aria-hidden="true" tabindex="-1"></a><span class="fu">hist</span>( nobs<span class="sc">/</span><span class="fu">ncol</span>(otu), <span class="at">nclass=</span><span class="dv">100</span>, <span class="at">xlab =</span> <span class="st">&#39;Fraction of observations&#39;</span>, </span>
+<span id="cb57-14"><a href="#cb57-14" aria-hidden="true" tabindex="-1"></a>      <span class="at">ylab =</span> <span class="st">&#39;Frequency&#39;</span>, <span class="at">main=</span><span class="st">&#39;Incidence&#39;</span> )</span></code></pre></div>
 <p>The graph on the left shows that two thirds of host seedlings are in the morbid condition. The middle graph shows that an individual OTU may be counted &gt; 40,000 times in an obseration, but the vast majority of observations (96%) are zero. The graph on the right shows the frequency for the fraction of observations in which each OTU occurs. The most common OTU occurs in 23% of observations, but most occur only once or twice.</p>
 <p>The model will provide no information on the rarest taxa. Here we trim <code>otu</code> to include only OTUs that occur in &gt; 100 observations. The rarest OTUs are aggregated into the last column of <code>y</code> with the column name <code>other</code>:</p>
-<div class="sourceCode" id="cb57"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb57-1"><a href="#cb57-1" aria-hidden="true" tabindex="-1"></a>tmp <span class="ot">&lt;-</span> <span class="fu">gjamTrimY</span>(otu, <span class="at">minObs =</span> <span class="dv">100</span>)</span>
-<span id="cb57-2"><a href="#cb57-2" aria-hidden="true" tabindex="-1"></a>y   <span class="ot">&lt;-</span> tmp<span class="sc">$</span>y</span>
-<span id="cb57-3"><a href="#cb57-3" aria-hidden="true" tabindex="-1"></a><span class="fu">dim</span>(fungEnd<span class="sc">$</span>y)               <span class="co"># all OTUs</span></span>
-<span id="cb57-4"><a href="#cb57-4" aria-hidden="true" tabindex="-1"></a><span class="fu">dim</span>(y)                       <span class="co"># trimmed data</span></span>
-<span id="cb57-5"><a href="#cb57-5" aria-hidden="true" tabindex="-1"></a><span class="fu">tail</span>(<span class="fu">colnames</span>(y))            <span class="co"># &#39;other&#39; class added</span></span></code></pre></div>
+<div class="sourceCode" id="cb58"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb58-1"><a href="#cb58-1" aria-hidden="true" tabindex="-1"></a>tmp <span class="ot">&lt;-</span> <span class="fu">gjamTrimY</span>(otu, <span class="at">minObs =</span> <span class="dv">100</span>)</span>
+<span id="cb58-2"><a href="#cb58-2" aria-hidden="true" tabindex="-1"></a>y   <span class="ot">&lt;-</span> tmp<span class="sc">$</span>y</span>
+<span id="cb58-3"><a href="#cb58-3" aria-hidden="true" tabindex="-1"></a><span class="fu">dim</span>(fungEnd<span class="sc">$</span>y)               <span class="co"># all OTUs</span></span>
+<span id="cb58-4"><a href="#cb58-4" aria-hidden="true" tabindex="-1"></a><span class="fu">dim</span>(y)                       <span class="co"># trimmed data</span></span>
+<span id="cb58-5"><a href="#cb58-5" aria-hidden="true" tabindex="-1"></a><span class="fu">tail</span>(<span class="fu">colnames</span>(y))            <span class="co"># &#39;other&#39; class added</span></span></code></pre></div>
 <p>The full response matrix includes the OTU composition counts and the host status in column 1:</p>
-<div class="sourceCode" id="cb58"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb58-1"><a href="#cb58-1" aria-hidden="true" tabindex="-1"></a>ydata <span class="ot">&lt;-</span> <span class="fu">cbind</span>(status, y)     <span class="co"># host status is also a response</span></span>
-<span id="cb58-2"><a href="#cb58-2" aria-hidden="true" tabindex="-1"></a>S     <span class="ot">&lt;-</span> <span class="fu">ncol</span>(ydata)</span>
-<span id="cb58-3"><a href="#cb58-3" aria-hidden="true" tabindex="-1"></a>typeNames    <span class="ot">&lt;-</span> <span class="fu">rep</span>(<span class="st">&#39;CC&#39;</span>,S)   <span class="co"># composition count data</span></span>
-<span id="cb58-4"><a href="#cb58-4" aria-hidden="true" tabindex="-1"></a>typeNames[<span class="dv">1</span>] <span class="ot">&lt;-</span> <span class="st">&#39;PA&#39;</span>          <span class="co"># binary host status </span></span></code></pre></div>
+<div class="sourceCode" id="cb59"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb59-1"><a href="#cb59-1" aria-hidden="true" tabindex="-1"></a>ydata <span class="ot">&lt;-</span> <span class="fu">cbind</span>(status, y)     <span class="co"># host status is also a response</span></span>
+<span id="cb59-2"><a href="#cb59-2" aria-hidden="true" tabindex="-1"></a>S     <span class="ot">&lt;-</span> <span class="fu">ncol</span>(ydata)</span>
+<span id="cb59-3"><a href="#cb59-3" aria-hidden="true" tabindex="-1"></a>typeNames    <span class="ot">&lt;-</span> <span class="fu">rep</span>(<span class="st">&#39;CC&#39;</span>,S)   <span class="co"># composition count data</span></span>
+<span id="cb59-4"><a href="#cb59-4" aria-hidden="true" tabindex="-1"></a>typeNames[<span class="dv">1</span>] <span class="ot">&lt;-</span> <span class="st">&#39;PA&#39;</span>          <span class="co"># binary host status </span></span></code></pre></div>
 <p>The interactions in the model involve two factors <code>poly</code> (two levels, polyculture vs monoculture) and <code>host</code> (eight factor levels, one for each host species). I assign <code>acerRubr</code> as the reference class for <code>host</code>,</p>
-<div class="sourceCode" id="cb59"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb59-1"><a href="#cb59-1" aria-hidden="true" tabindex="-1"></a>xdata<span class="sc">$</span>host <span class="ot">&lt;-</span> <span class="fu">relevel</span>(xdata<span class="sc">$</span>host,<span class="st">&#39;acerRubr&#39;</span>)</span></code></pre></div>
+<div class="sourceCode" id="cb60"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb60-1"><a href="#cb60-1" aria-hidden="true" tabindex="-1"></a>xdata<span class="sc">$</span>host <span class="ot">&lt;-</span> <span class="fu">relevel</span>(xdata<span class="sc">$</span>host,<span class="st">&#39;acerRubr&#39;</span>)</span></code></pre></div>
 <p>The <code>gjam vignette</code> on traits discusses multilevel factors in more detail. We discuss multilevel factors in the context of interactions below.</p>
 <p>For this example we specify up to <span class="math inline">\(N = 20\)</span> clusters with <span class="math inline">\(r = 3\)</span> columns each. Here is an analysis of host seedling and polyculture effect on combined host morbidity status and the microbiome composition:</p>
-<div class="sourceCode" id="cb60"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb60-1"><a href="#cb60-1" aria-hidden="true" tabindex="-1"></a>ml <span class="ot">&lt;-</span> <span class="fu">list</span>( <span class="at">ng =</span> <span class="dv">2000</span>, <span class="at">burnin =</span> <span class="dv">500</span>, <span class="at">typeNames =</span> typeNames, </span>
-<span id="cb60-2"><a href="#cb60-2" aria-hidden="true" tabindex="-1"></a>            <span class="at">reductList =</span> <span class="fu">list</span>(<span class="at">r =</span> <span class="dv">5</span>, <span class="at">N =</span> <span class="dv">15</span>) )</span>
-<span id="cb60-3"><a href="#cb60-3" aria-hidden="true" tabindex="-1"></a>output <span class="ot">&lt;-</span> <span class="fu">gjam</span>(<span class="sc">~</span> host<span class="sc">*</span>poly, xdata, ydata, <span class="at">modelList =</span> ml)</span></code></pre></div>
+<div class="sourceCode" id="cb61"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb61-1"><a href="#cb61-1" aria-hidden="true" tabindex="-1"></a>ml <span class="ot">&lt;-</span> <span class="fu">list</span>( <span class="at">ng =</span> <span class="dv">2000</span>, <span class="at">burnin =</span> <span class="dv">500</span>, <span class="at">typeNames =</span> typeNames, </span>
+<span id="cb61-2"><a href="#cb61-2" aria-hidden="true" tabindex="-1"></a>            <span class="at">reductList =</span> <span class="fu">list</span>(<span class="at">r =</span> <span class="dv">5</span>, <span class="at">N =</span> <span class="dv">15</span>) )</span>
+<span id="cb61-3"><a href="#cb61-3" aria-hidden="true" tabindex="-1"></a>output <span class="ot">&lt;-</span> <span class="fu">gjam</span>(<span class="sc">~</span> host<span class="sc">*</span>poly, xdata, ydata, <span class="at">modelList =</span> ml)</span></code></pre></div>
 <p>Here is output:</p>
-<div class="sourceCode" id="cb61"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb61-1"><a href="#cb61-1" aria-hidden="true" tabindex="-1"></a>S <span class="ot">&lt;-</span> <span class="fu">ncol</span>(ydata)</span>
-<span id="cb61-2"><a href="#cb61-2" aria-hidden="true" tabindex="-1"></a>specColor     <span class="ot">&lt;-</span> <span class="fu">rep</span>(<span class="st">&#39;white&#39;</span>,S)</span>
-<span id="cb61-3"><a href="#cb61-3" aria-hidden="true" tabindex="-1"></a>specColor[<span class="dv">1</span>]  <span class="ot">&lt;-</span> <span class="st">&#39;#b2182b&#39;</span>                 <span class="co"># highlight host status</span></span>
-<span id="cb61-4"><a href="#cb61-4" aria-hidden="true" tabindex="-1"></a>fit <span class="ot">&lt;-</span> <span class="fu">gjamPlot</span>( output, <span class="at">plotPars =</span> <span class="fu">list</span>(<span class="at">specColor =</span> specColor, <span class="at">GRIDPLOTS=</span>T) )</span>
-<span id="cb61-5"><a href="#cb61-5" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb61-6"><a href="#cb61-6" aria-hidden="true" tabindex="-1"></a>fit<span class="sc">$</span>eComs[<span class="dv">1</span><span class="sc">:</span><span class="dv">5</span>,]</span></code></pre></div>
+<div class="sourceCode" id="cb62"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb62-1"><a href="#cb62-1" aria-hidden="true" tabindex="-1"></a>S <span class="ot">&lt;-</span> <span class="fu">ncol</span>(ydata)</span>
+<span id="cb62-2"><a href="#cb62-2" aria-hidden="true" tabindex="-1"></a>specColor     <span class="ot">&lt;-</span> <span class="fu">rep</span>(<span class="st">&#39;white&#39;</span>,S)</span>
+<span id="cb62-3"><a href="#cb62-3" aria-hidden="true" tabindex="-1"></a>specColor[<span class="dv">1</span>]  <span class="ot">&lt;-</span> <span class="st">&#39;#b2182b&#39;</span>                 <span class="co"># highlight host status</span></span>
+<span id="cb62-4"><a href="#cb62-4" aria-hidden="true" tabindex="-1"></a>fit <span class="ot">&lt;-</span> <span class="fu">gjamPlot</span>( output, <span class="at">plotPars =</span> <span class="fu">list</span>(<span class="at">specColor =</span> specColor, <span class="at">GRIDPLOTS=</span>T) )</span>
+<span id="cb62-5"><a href="#cb62-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb62-6"><a href="#cb62-6" aria-hidden="true" tabindex="-1"></a>fit<span class="sc">$</span>eComs[<span class="dv">1</span><span class="sc">:</span><span class="dv">5</span>,]</span></code></pre></div>
 <p>Check the chains for convergence. Those coefficients that do not converge are poorly represented in factorial factor combinations.</p>
 <p>Again, the low dimensional version of covariance <span class="math inline">\(\boldsymbol{\Sigma}\)</span> is expected to perform best when there is structure in the data. The responses in matrix <span class="math inline">\(\mathbf{E}\)</span>, returned in <code>fit$ematrix</code>, classify OTUs in three main groups, contained in <code>fit$eComs</code>.</p>
 </div>
 <div id="interactions-and-indirect-effects" class="section level2">
 <h2><span style="color:teal">interactions and indirect effects</span></h2>
 <p>A plot of main effects, interactions, and indirect effects is used in this example to show contributions to host status, the response variable <code>status</code>. The effects on host status of on responses is available as a table with standard errors and credible intervals:</p>
-<div class="sourceCode" id="cb62"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb62-1"><a href="#cb62-1" aria-hidden="true" tabindex="-1"></a>beta <span class="ot">&lt;-</span> output<span class="sc">$</span>parameters<span class="sc">$</span>betaTable</span>
-<span id="cb62-2"><a href="#cb62-2" aria-hidden="true" tabindex="-1"></a>ws   <span class="ot">&lt;-</span> <span class="fu">grep</span>( <span class="st">&#39;status_&#39;</span>,<span class="fu">rownames</span>(beta) )  <span class="co"># find coefficients for status</span></span>
-<span id="cb62-3"><a href="#cb62-3" aria-hidden="true" tabindex="-1"></a>beta[ws,]</span></code></pre></div>
+<div class="sourceCode" id="cb63"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb63-1"><a href="#cb63-1" aria-hidden="true" tabindex="-1"></a>beta <span class="ot">&lt;-</span> output<span class="sc">$</span>parameters<span class="sc">$</span>betaTable</span>
+<span id="cb63-2"><a href="#cb63-2" aria-hidden="true" tabindex="-1"></a>ws   <span class="ot">&lt;-</span> <span class="fu">grep</span>( <span class="st">&#39;status_&#39;</span>,<span class="fu">rownames</span>(beta) )  <span class="co"># find coefficients for status</span></span>
+<span id="cb63-3"><a href="#cb63-3" aria-hidden="true" tabindex="-1"></a>beta[ws,]</span></code></pre></div>
 <p>Following the intercept are rows showing main effects. These are followed by interaction terms. A quick visual of coefficients having credible intervals that exclude zero is here:</p>
-<div class="sourceCode" id="cb63"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb63-1"><a href="#cb63-1" aria-hidden="true" tabindex="-1"></a>ws <span class="ot">&lt;-</span> <span class="fu">which</span>(beta<span class="sc">$</span>sig95 <span class="sc">==</span> <span class="st">&#39;*&#39;</span>)</span>
-<span id="cb63-2"><a href="#cb63-2" aria-hidden="true" tabindex="-1"></a>beta[ws,]</span></code></pre></div>
+<div class="sourceCode" id="cb64"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb64-1"><a href="#cb64-1" aria-hidden="true" tabindex="-1"></a>ws <span class="ot">&lt;-</span> <span class="fu">which</span>(beta<span class="sc">$</span>sig95 <span class="sc">==</span> <span class="st">&#39;*&#39;</span>)</span>
+<span id="cb64-2"><a href="#cb64-2" aria-hidden="true" tabindex="-1"></a>beta[ws,]</span></code></pre></div>
 <p>with <code>-</code> and <code>+</code> indicating negative and postive values.</p>
 <p>Here I use the function <code>gamIIE</code> to create the object <code>fit1</code>, a <code>list</code> of these main, interaction, and indirect effects. I specify not to include the response variable <code>other</code> as an indirect effect on <code>status</code>, because we want to focus on the effects of microbes that have been assigned to known taxonomic groups.</p>
 <p>I specify the values for main effects that are involved in the interactions between <code>poly</code> and <code>host</code>. Each factor has one less column in the design matrix <code>x</code> than factor levels. <code>poly</code> has two classes in <code>xdata</code>, one each for monoculture and polyculture, so there is one <code>poly</code> column in <code>x</code>. <code>host</code> has eight species in <code>xdata</code>, so there are seven columns in <code>x</code>. Recall that we assigned <code>acerRubr</code> to be the reference class, so there is no column for it in <code>x</code>.</p>
 <p>The vector of predictor values <code>xvector</code> passed to <code>gjamIIE</code> has the same elements and names as columns in <code>x</code>. For this reason it is easiest to simply assign it a row in <code>x</code>, then change the values. The only values that influence interactions are those that are involved in interaction terms, as specified in <code>formula</code>.</p>
 <p>For the following plots I copy the first row of <code>x</code>. In the first are main effects of all predictors on <code>status</code>. In the second plot is interactions with <code>poly</code> set to 1. In the third plot are indirect effects of the microbes:</p>
-<div class="sourceCode" id="cb64"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb64-1"><a href="#cb64-1" aria-hidden="true" tabindex="-1"></a>x <span class="ot">&lt;-</span> output<span class="sc">$</span>inputs<span class="sc">$</span>xUnstand</span>
-<span id="cb64-2"><a href="#cb64-2" aria-hidden="true" tabindex="-1"></a>xvector <span class="ot">&lt;-</span> x[<span class="dv">1</span>,]<span class="sc">*</span><span class="dv">0</span></span>
-<span id="cb64-3"><a href="#cb64-3" aria-hidden="true" tabindex="-1"></a><span class="fu">names</span>(xvector)  <span class="ot">&lt;-</span> <span class="fu">colnames</span>(x)</span>
-<span id="cb64-4"><a href="#cb64-4" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb64-5"><a href="#cb64-5" aria-hidden="true" tabindex="-1"></a>xvector[<span class="st">&#39;hostfraxAmer&#39;</span>] <span class="ot">&lt;-</span> <span class="dv">1</span></span>
-<span id="cb64-6"><a href="#cb64-6" aria-hidden="true" tabindex="-1"></a>xvector[<span class="st">&#39;polypoly&#39;</span>] <span class="ot">&lt;-</span> <span class="dv">1</span></span>
-<span id="cb64-7"><a href="#cb64-7" aria-hidden="true" tabindex="-1"></a>fit1 <span class="ot">&lt;-</span> <span class="fu">gjamIIE</span>(output, xvector, <span class="at">omitY =</span> <span class="st">&#39;other&#39;</span>)</span>
-<span id="cb64-8"><a href="#cb64-8" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb64-9"><a href="#cb64-9" aria-hidden="true" tabindex="-1"></a><span class="fu">par</span>(<span class="at">mfrow=</span><span class="fu">c</span>(<span class="dv">1</span>,<span class="dv">3</span>), <span class="at">bty=</span><span class="st">&#39;n&#39;</span>, <span class="at">oma =</span> <span class="fu">c</span>(<span class="dv">1</span>,<span class="dv">2</span>,<span class="dv">0</span>,<span class="dv">0</span>), </span>
-<span id="cb64-10"><a href="#cb64-10" aria-hidden="true" tabindex="-1"></a>    <span class="at">mar =</span> <span class="fu">c</span>(<span class="dv">3</span>,<span class="dv">3</span>,<span class="dv">3</span>,<span class="dv">1</span>), <span class="at">tcl =</span> <span class="sc">-</span><span class="fl">0.5</span>, <span class="at">mgp =</span> <span class="fu">c</span>(<span class="dv">3</span>,<span class="dv">1</span>,<span class="dv">0</span>))</span>
-<span id="cb64-11"><a href="#cb64-11" aria-hidden="true" tabindex="-1"></a><span class="fu">gjamIIEplot</span>(fit1, <span class="at">response =</span> <span class="st">&#39;status&#39;</span>, <span class="at">effectMu =</span> <span class="st">&#39;direct&#39;</span>, </span>
-<span id="cb64-12"><a href="#cb64-12" aria-hidden="true" tabindex="-1"></a>            <span class="at">effectSd =</span> <span class="st">&#39;direct&#39;</span>, <span class="at">legLoc =</span> <span class="st">&#39;bottomright&#39;</span>, <span class="at">ylim=</span><span class="fu">c</span>(<span class="sc">-</span><span class="dv">10</span>,<span class="dv">10</span>))</span>
-<span id="cb64-13"><a href="#cb64-13" aria-hidden="true" tabindex="-1"></a><span class="fu">title</span>(<span class="st">&#39;Direct effect by host&#39;</span>)</span>
-<span id="cb64-14"><a href="#cb64-14" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb64-15"><a href="#cb64-15" aria-hidden="true" tabindex="-1"></a><span class="fu">gjamIIEplot</span>(fit1, <span class="at">response =</span> <span class="st">&#39;status&#39;</span>, <span class="at">effectMu =</span> <span class="st">&#39;int&#39;</span>, <span class="at">effectSd =</span> <span class="st">&#39;int&#39;</span>,</span>
-<span id="cb64-16"><a href="#cb64-16" aria-hidden="true" tabindex="-1"></a>            <span class="at">legLoc =</span> <span class="st">&#39;topright&#39;</span>, <span class="at">ylim=</span><span class="fu">c</span>(<span class="sc">-</span><span class="dv">10</span>,<span class="dv">10</span>))</span>
-<span id="cb64-17"><a href="#cb64-17" aria-hidden="true" tabindex="-1"></a><span class="fu">title</span>(<span class="st">&#39;Interactions with polyculture&#39;</span>)</span>
-<span id="cb64-18"><a href="#cb64-18" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb64-19"><a href="#cb64-19" aria-hidden="true" tabindex="-1"></a><span class="fu">gjamIIEplot</span>(fit1, <span class="at">response =</span> <span class="st">&#39;status&#39;</span>, <span class="at">effectMu =</span> <span class="st">&#39;ind&#39;</span>, <span class="at">effectSd =</span> <span class="st">&#39;ind&#39;</span>,</span>
-<span id="cb64-20"><a href="#cb64-20" aria-hidden="true" tabindex="-1"></a>            <span class="at">legLoc =</span> <span class="st">&#39;topright&#39;</span>, <span class="at">ylim=</span><span class="fu">c</span>(<span class="sc">-</span><span class="dv">5</span>,<span class="dv">5</span>))</span>
-<span id="cb64-21"><a href="#cb64-21" aria-hidden="true" tabindex="-1"></a><span class="fu">title</span>(<span class="st">&#39;Indirect effect of microbiome&#39;</span>)</span></code></pre></div>
+<div class="sourceCode" id="cb65"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb65-1"><a href="#cb65-1" aria-hidden="true" tabindex="-1"></a>x <span class="ot">&lt;-</span> output<span class="sc">$</span>inputs<span class="sc">$</span>xUnstand</span>
+<span id="cb65-2"><a href="#cb65-2" aria-hidden="true" tabindex="-1"></a>xvector <span class="ot">&lt;-</span> x[<span class="dv">1</span>,]<span class="sc">*</span><span class="dv">0</span></span>
+<span id="cb65-3"><a href="#cb65-3" aria-hidden="true" tabindex="-1"></a><span class="fu">names</span>(xvector)  <span class="ot">&lt;-</span> <span class="fu">colnames</span>(x)</span>
+<span id="cb65-4"><a href="#cb65-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb65-5"><a href="#cb65-5" aria-hidden="true" tabindex="-1"></a>xvector[<span class="st">&#39;hostfraxAmer&#39;</span>] <span class="ot">&lt;-</span> <span class="dv">1</span></span>
+<span id="cb65-6"><a href="#cb65-6" aria-hidden="true" tabindex="-1"></a>xvector[<span class="st">&#39;polypoly&#39;</span>] <span class="ot">&lt;-</span> <span class="dv">1</span></span>
+<span id="cb65-7"><a href="#cb65-7" aria-hidden="true" tabindex="-1"></a>fit1 <span class="ot">&lt;-</span> <span class="fu">gjamIIE</span>(output, xvector, <span class="at">omitY =</span> <span class="st">&#39;other&#39;</span>)</span>
+<span id="cb65-8"><a href="#cb65-8" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb65-9"><a href="#cb65-9" aria-hidden="true" tabindex="-1"></a><span class="fu">par</span>(<span class="at">mfrow=</span><span class="fu">c</span>(<span class="dv">1</span>,<span class="dv">3</span>), <span class="at">bty=</span><span class="st">&#39;n&#39;</span>, <span class="at">oma =</span> <span class="fu">c</span>(<span class="dv">1</span>,<span class="dv">2</span>,<span class="dv">0</span>,<span class="dv">0</span>), </span>
+<span id="cb65-10"><a href="#cb65-10" aria-hidden="true" tabindex="-1"></a>    <span class="at">mar =</span> <span class="fu">c</span>(<span class="dv">3</span>,<span class="dv">3</span>,<span class="dv">3</span>,<span class="dv">1</span>), <span class="at">tcl =</span> <span class="sc">-</span><span class="fl">0.5</span>, <span class="at">mgp =</span> <span class="fu">c</span>(<span class="dv">3</span>,<span class="dv">1</span>,<span class="dv">0</span>))</span>
+<span id="cb65-11"><a href="#cb65-11" aria-hidden="true" tabindex="-1"></a><span class="fu">gjamIIEplot</span>(fit1, <span class="at">response =</span> <span class="st">&#39;status&#39;</span>, <span class="at">effectMu =</span> <span class="st">&#39;direct&#39;</span>, </span>
+<span id="cb65-12"><a href="#cb65-12" aria-hidden="true" tabindex="-1"></a>            <span class="at">effectSd =</span> <span class="st">&#39;direct&#39;</span>, <span class="at">legLoc =</span> <span class="st">&#39;bottomright&#39;</span>, <span class="at">ylim=</span><span class="fu">c</span>(<span class="sc">-</span><span class="dv">10</span>,<span class="dv">10</span>))</span>
+<span id="cb65-13"><a href="#cb65-13" aria-hidden="true" tabindex="-1"></a><span class="fu">title</span>(<span class="st">&#39;Direct effect by host&#39;</span>)</span>
+<span id="cb65-14"><a href="#cb65-14" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb65-15"><a href="#cb65-15" aria-hidden="true" tabindex="-1"></a><span class="fu">gjamIIEplot</span>(fit1, <span class="at">response =</span> <span class="st">&#39;status&#39;</span>, <span class="at">effectMu =</span> <span class="st">&#39;int&#39;</span>, <span class="at">effectSd =</span> <span class="st">&#39;int&#39;</span>,</span>
+<span id="cb65-16"><a href="#cb65-16" aria-hidden="true" tabindex="-1"></a>            <span class="at">legLoc =</span> <span class="st">&#39;topright&#39;</span>, <span class="at">ylim=</span><span class="fu">c</span>(<span class="sc">-</span><span class="dv">10</span>,<span class="dv">10</span>))</span>
+<span id="cb65-17"><a href="#cb65-17" aria-hidden="true" tabindex="-1"></a><span class="fu">title</span>(<span class="st">&#39;Interactions with polyculture&#39;</span>)</span>
+<span id="cb65-18"><a href="#cb65-18" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb65-19"><a href="#cb65-19" aria-hidden="true" tabindex="-1"></a><span class="fu">gjamIIEplot</span>(fit1, <span class="at">response =</span> <span class="st">&#39;status&#39;</span>, <span class="at">effectMu =</span> <span class="st">&#39;ind&#39;</span>, <span class="at">effectSd =</span> <span class="st">&#39;ind&#39;</span>,</span>
+<span id="cb65-20"><a href="#cb65-20" aria-hidden="true" tabindex="-1"></a>            <span class="at">legLoc =</span> <span class="st">&#39;topright&#39;</span>, <span class="at">ylim=</span><span class="fu">c</span>(<span class="sc">-</span><span class="dv">5</span>,<span class="dv">5</span>))</span>
+<span id="cb65-21"><a href="#cb65-21" aria-hidden="true" tabindex="-1"></a><span class="fu">title</span>(<span class="st">&#39;Indirect effect of microbiome&#39;</span>)</span></code></pre></div>
 <p>The plot at left is the direct effect, which includes both the main effects plus interactions and plotted relative to the mean over all hosts. The interaction contribution at center is the effect of each host, when grown in polyculture (<code>poly = ref1</code>) and of polyculture when the <code>host = &#39;fraxAmer</code>.</p>
 <p>The indirect effects bring with them the main effects and interaction effects on each microbial taxon. In this example the indirect effects are noisy, showing large 95% intervals.</p>
 <p>I might also wish to explore the taxa that are more abundant in healthy versus morbid hosts. This can be done with <code>gjamPredict</code>. Here are conditional predictions for responses with <code>status</code> first set to 0 (morbid) and then set to 1 (healthy):</p>
-<div class="sourceCode" id="cb65"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb65-1"><a href="#cb65-1" aria-hidden="true" tabindex="-1"></a>y0 <span class="ot">&lt;-</span> ydata[,<span class="dv">1</span>,drop<span class="ot">=</span>F]<span class="sc">*</span><span class="dv">0</span>                         <span class="co"># abundance in morbid host</span></span>
-<span id="cb65-2"><a href="#cb65-2" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb65-3"><a href="#cb65-3" aria-hidden="true" tabindex="-1"></a>new    <span class="ot">&lt;-</span> <span class="fu">list</span>(<span class="at">ydataCond =</span> y0, <span class="at">nsim=</span><span class="dv">50</span>)</span>
-<span id="cb65-4"><a href="#cb65-4" aria-hidden="true" tabindex="-1"></a>morbid <span class="ot">&lt;-</span> <span class="fu">gjamPredict</span>(output, <span class="at">newdata =</span> new ) </span>
-<span id="cb65-5"><a href="#cb65-5" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb65-6"><a href="#cb65-6" aria-hidden="true" tabindex="-1"></a>new     <span class="ot">&lt;-</span> <span class="fu">list</span>(<span class="at">ydataCond =</span> y0 <span class="sc">+</span> <span class="dv">1</span>, <span class="at">nsim =</span> <span class="dv">50</span> )  <span class="co"># abundance in healthy host</span></span>
-<span id="cb65-7"><a href="#cb65-7" aria-hidden="true" tabindex="-1"></a>healthy <span class="ot">&lt;-</span> <span class="fu">gjamPredict</span>(output, <span class="at">newdata =</span> new )</span>
-<span id="cb65-8"><a href="#cb65-8" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb65-9"><a href="#cb65-9" aria-hidden="true" tabindex="-1"></a>cols <span class="ot">&lt;-</span> <span class="fu">c</span>(<span class="st">&#39;#fdd49e&#39;</span>,<span class="st">&#39;#fdbb84&#39;</span>,<span class="st">&#39;#fc8d59&#39;</span>,<span class="st">&#39;#ef6548&#39;</span>,</span>
-<span id="cb65-10"><a href="#cb65-10" aria-hidden="true" tabindex="-1"></a>          <span class="st">&#39;#d7301f&#39;</span>,<span class="st">&#39;#990000&#39;</span>, <span class="st">&#39;#7f0000&#39;</span> ) <span class="co"># scale for predicted prevalence</span></span>
-<span id="cb65-11"><a href="#cb65-11" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb65-12"><a href="#cb65-12" aria-hidden="true" tabindex="-1"></a>y    <span class="ot">&lt;-</span> out<span class="sc">$</span>inputs<span class="sc">$</span>y</span>
-<span id="cb65-13"><a href="#cb65-13" aria-hidden="true" tabindex="-1"></a>i    <span class="ot">&lt;-</span> <span class="dv">2</span><span class="sc">:</span>S</span>
-<span id="cb65-14"><a href="#cb65-14" aria-hidden="true" tabindex="-1"></a>h <span class="ot">&lt;-</span> healthy<span class="sc">$</span>sdList<span class="sc">$</span>yMu[,i] </span>
-<span id="cb65-15"><a href="#cb65-15" aria-hidden="true" tabindex="-1"></a>m <span class="ot">&lt;-</span> morbid<span class="sc">$</span>sdList<span class="sc">$</span>yMu[,i] </span>
-<span id="cb65-16"><a href="#cb65-16" aria-hidden="true" tabindex="-1"></a>d <span class="ot">&lt;-</span> h <span class="sc">-</span> m</span>
-<span id="cb65-17"><a href="#cb65-17" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb65-18"><a href="#cb65-18" aria-hidden="true" tabindex="-1"></a>mk <span class="ot">&lt;-</span> d </span>
-<span id="cb65-19"><a href="#cb65-19" aria-hidden="true" tabindex="-1"></a>mk[ mk <span class="sc">&lt;</span> <span class="dv">0</span> ] <span class="ot">&lt;-</span> <span class="sc">-</span><span class="dv">1</span>                  <span class="co"># prevalence of healthy minus morbid predictions</span></span>
-<span id="cb65-20"><a href="#cb65-20" aria-hidden="true" tabindex="-1"></a>mk[ mk <span class="sc">&gt;</span> <span class="dv">0</span> ] <span class="ot">&lt;-</span> <span class="dv">0</span></span>
-<span id="cb65-21"><a href="#cb65-21" aria-hidden="true" tabindex="-1"></a>mk <span class="ot">&lt;-</span> <span class="fu">colSums</span>(mk)</span>
-<span id="cb65-22"><a href="#cb65-22" aria-hidden="true" tabindex="-1"></a>mk <span class="ot">&lt;-</span> <span class="fu">names</span>( mk[ <span class="fu">order</span>(mk) ] )</span>
-<span id="cb65-23"><a href="#cb65-23" aria-hidden="true" tabindex="-1"></a>ocol  <span class="ot">&lt;-</span> <span class="fu">colorRampPalette</span>( cols )( S <span class="sc">-</span> <span class="dv">1</span> )</span>
-<span id="cb65-24"><a href="#cb65-24" aria-hidden="true" tabindex="-1"></a><span class="fu">names</span>(ocol) <span class="ot">&lt;-</span> <span class="fu">rev</span>( mk )</span>
-<span id="cb65-25"><a href="#cb65-25" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb65-26"><a href="#cb65-26" aria-hidden="true" tabindex="-1"></a>host  <span class="ot">&lt;-</span> <span class="fu">as.character</span>(xdata<span class="sc">$</span>host)  <span class="co"># all host species</span></span>
-<span id="cb65-27"><a href="#cb65-27" aria-hidden="true" tabindex="-1"></a>hosts <span class="ot">&lt;-</span> <span class="fu">sort</span>( <span class="fu">unique</span>(host) )</span>
-<span id="cb65-28"><a href="#cb65-28" aria-hidden="true" tabindex="-1"></a>nhost <span class="ot">&lt;-</span> <span class="fu">length</span>(hosts)</span>
-<span id="cb65-29"><a href="#cb65-29" aria-hidden="true" tabindex="-1"></a>notu  <span class="ot">&lt;-</span> <span class="dv">10</span>                        <span class="co"># no. ranked OTUs to plot</span></span>
-<span id="cb65-30"><a href="#cb65-30" aria-hidden="true" tabindex="-1"></a>xwide <span class="ot">&lt;-</span> <span class="dv">20</span></span>
-<span id="cb65-31"><a href="#cb65-31" aria-hidden="true" tabindex="-1"></a>ylim  <span class="ot">&lt;-</span> <span class="fu">c</span>(<span class="dv">0</span>, <span class="dv">20</span>)</span>
-<span id="cb65-32"><a href="#cb65-32" aria-hidden="true" tabindex="-1"></a>bins  <span class="ot">&lt;-</span> <span class="sc">-</span>xwide<span class="sc">:</span>xwide</span>
-<span id="cb65-33"><a href="#cb65-33" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb65-34"><a href="#cb65-34" aria-hidden="true" tabindex="-1"></a><span class="fu">par</span>( <span class="at">mfrow=</span><span class="fu">c</span>(nhost, notu), <span class="at">bty =</span> <span class="st">&#39;n&#39;</span>, <span class="at">mar =</span> <span class="fu">c</span>(.<span class="dv">5</span>, <span class="dv">1</span>, <span class="dv">1</span>, .<span class="dv">5</span>), <span class="at">omi=</span><span class="fu">c</span>(.<span class="dv">4</span>,.<span class="dv">4</span>,.<span class="dv">4</span>,.<span class="dv">1</span>)  )</span>
-<span id="cb65-35"><a href="#cb65-35" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb65-36"><a href="#cb65-36" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span>(k <span class="cf">in</span> <span class="dv">1</span><span class="sc">:</span>nhost){</span>
-<span id="cb65-37"><a href="#cb65-37" aria-hidden="true" tabindex="-1"></a>  </span>
-<span id="cb65-38"><a href="#cb65-38" aria-hidden="true" tabindex="-1"></a>  mk <span class="ot">&lt;-</span> dk <span class="ot">&lt;-</span> d[ host <span class="sc">==</span> hosts[k], ]  <span class="co"># observations for host k</span></span>
-<span id="cb65-39"><a href="#cb65-39" aria-hidden="true" tabindex="-1"></a>  </span>
-<span id="cb65-40"><a href="#cb65-40" aria-hidden="true" tabindex="-1"></a>  mk[ mk <span class="sc">&lt;</span> <span class="dv">0</span> ] <span class="ot">&lt;-</span> <span class="sc">-</span><span class="dv">1</span>                  <span class="co"># rank prevalence of negative effects</span></span>
-<span id="cb65-41"><a href="#cb65-41" aria-hidden="true" tabindex="-1"></a>  mk[ mk <span class="sc">&gt;</span> <span class="dv">0</span> ] <span class="ot">&lt;-</span> <span class="dv">0</span></span>
-<span id="cb65-42"><a href="#cb65-42" aria-hidden="true" tabindex="-1"></a>  mk <span class="ot">&lt;-</span> <span class="fu">colSums</span>(mk)</span>
-<span id="cb65-43"><a href="#cb65-43" aria-hidden="true" tabindex="-1"></a>  mk <span class="ot">&lt;-</span> <span class="fu">names</span>( mk[ <span class="fu">order</span>(mk) ] )</span>
-<span id="cb65-44"><a href="#cb65-44" aria-hidden="true" tabindex="-1"></a>  </span>
-<span id="cb65-45"><a href="#cb65-45" aria-hidden="true" tabindex="-1"></a>  <span class="cf">for</span>(j <span class="cf">in</span> <span class="dv">1</span><span class="sc">:</span>notu){                   <span class="co"># plot highest ranked OTUs (h &lt;&lt; m)</span></span>
-<span id="cb65-46"><a href="#cb65-46" aria-hidden="true" tabindex="-1"></a>    yj <span class="ot">&lt;-</span> dk[,mk[j]]</span>
-<span id="cb65-47"><a href="#cb65-47" aria-hidden="true" tabindex="-1"></a>    yj[ yj <span class="sc">&lt;</span> <span class="sc">-</span>xwide ] <span class="ot">&lt;-</span> <span class="sc">-</span>xwide</span>
-<span id="cb65-48"><a href="#cb65-48" aria-hidden="true" tabindex="-1"></a>    yj[ yj <span class="sc">&gt;</span> xwide ] <span class="ot">&lt;-</span> xwide</span>
-<span id="cb65-49"><a href="#cb65-49" aria-hidden="true" tabindex="-1"></a>    </span>
-<span id="cb65-50"><a href="#cb65-50" aria-hidden="true" tabindex="-1"></a>    <span class="fu">hist</span>( yj, <span class="at">breaks =</span> bins, <span class="at">xlim =</span> <span class="fu">c</span>(<span class="sc">-</span>xwide, xwide),</span>
-<span id="cb65-51"><a href="#cb65-51" aria-hidden="true" tabindex="-1"></a>         <span class="at">ylim =</span> ylim, <span class="at">main =</span> <span class="fu">substr</span>(mk[j], <span class="dv">1</span>, <span class="dv">8</span>), <span class="at">xlab =</span> <span class="st">&#39;&#39;</span>, <span class="at">ylab=</span><span class="st">&#39;&#39;</span>, </span>
-<span id="cb65-52"><a href="#cb65-52" aria-hidden="true" tabindex="-1"></a>         <span class="at">col =</span> ocol[mk[j]], <span class="at">border =</span> ocol[mk[j]],  <span class="at">axes =</span> F)</span>
-<span id="cb65-53"><a href="#cb65-53" aria-hidden="true" tabindex="-1"></a>    <span class="fu">abline</span>(<span class="at">v =</span> <span class="dv">0</span>, <span class="at">col =</span> <span class="st">&#39;grey&#39;</span>)</span>
-<span id="cb65-54"><a href="#cb65-54" aria-hidden="true" tabindex="-1"></a>  }</span>
-<span id="cb65-55"><a href="#cb65-55" aria-hidden="true" tabindex="-1"></a>}</span>
-<span id="cb65-56"><a href="#cb65-56" aria-hidden="true" tabindex="-1"></a>ylab <span class="ot">&lt;-</span> <span class="fu">paste0</span>( <span class="fu">rev</span>(hosts), <span class="at">collapse =</span> <span class="st">&#39;  &#39;</span> )</span>
-<span id="cb65-57"><a href="#cb65-57" aria-hidden="true" tabindex="-1"></a><span class="fu">mtext</span>( <span class="at">side =</span> <span class="dv">1</span>, <span class="st">&#39;Predicted prevalence in healthy minus morbid hosts&#39;</span>, <span class="at">outer=</span>T, <span class="at">line=</span><span class="dv">1</span>)</span>
-<span id="cb65-58"><a href="#cb65-58" aria-hidden="true" tabindex="-1"></a><span class="fu">mtext</span>( <span class="at">side =</span> <span class="dv">2</span>, ylab, <span class="at">outer=</span>T, <span class="at">line=</span><span class="dv">0</span>, <span class="at">cex=</span>.<span class="dv">8</span>)</span>
-<span id="cb65-59"><a href="#cb65-59" aria-hidden="true" tabindex="-1"></a><span class="fu">mtext</span>( <span class="at">side =</span> <span class="dv">3</span>, <span class="st">&#39;Most negative predictions by host spp&#39;</span>, <span class="at">outer =</span> T, <span class="at">line =</span> <span class="dv">1</span>)</span></code></pre></div>
+<div class="sourceCode" id="cb66"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb66-1"><a href="#cb66-1" aria-hidden="true" tabindex="-1"></a>y0 <span class="ot">&lt;-</span> ydata[,<span class="dv">1</span>,drop<span class="ot">=</span>F]<span class="sc">*</span><span class="dv">0</span>                         <span class="co"># abundance in morbid host</span></span>
+<span id="cb66-2"><a href="#cb66-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb66-3"><a href="#cb66-3" aria-hidden="true" tabindex="-1"></a>new    <span class="ot">&lt;-</span> <span class="fu">list</span>(<span class="at">ydataCond =</span> y0, <span class="at">nsim=</span><span class="dv">50</span>)</span>
+<span id="cb66-4"><a href="#cb66-4" aria-hidden="true" tabindex="-1"></a>morbid <span class="ot">&lt;-</span> <span class="fu">gjamPredict</span>(output, <span class="at">newdata =</span> new ) </span>
+<span id="cb66-5"><a href="#cb66-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb66-6"><a href="#cb66-6" aria-hidden="true" tabindex="-1"></a>new     <span class="ot">&lt;-</span> <span class="fu">list</span>(<span class="at">ydataCond =</span> y0 <span class="sc">+</span> <span class="dv">1</span>, <span class="at">nsim =</span> <span class="dv">50</span> )  <span class="co"># abundance in healthy host</span></span>
+<span id="cb66-7"><a href="#cb66-7" aria-hidden="true" tabindex="-1"></a>healthy <span class="ot">&lt;-</span> <span class="fu">gjamPredict</span>(output, <span class="at">newdata =</span> new )</span>
+<span id="cb66-8"><a href="#cb66-8" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb66-9"><a href="#cb66-9" aria-hidden="true" tabindex="-1"></a>cols <span class="ot">&lt;-</span> <span class="fu">c</span>(<span class="st">&#39;#fdd49e&#39;</span>,<span class="st">&#39;#fdbb84&#39;</span>,<span class="st">&#39;#fc8d59&#39;</span>,<span class="st">&#39;#ef6548&#39;</span>,</span>
+<span id="cb66-10"><a href="#cb66-10" aria-hidden="true" tabindex="-1"></a>          <span class="st">&#39;#d7301f&#39;</span>,<span class="st">&#39;#990000&#39;</span>, <span class="st">&#39;#7f0000&#39;</span> ) <span class="co"># scale for predicted prevalence</span></span>
+<span id="cb66-11"><a href="#cb66-11" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb66-12"><a href="#cb66-12" aria-hidden="true" tabindex="-1"></a>y    <span class="ot">&lt;-</span> out<span class="sc">$</span>inputs<span class="sc">$</span>y</span>
+<span id="cb66-13"><a href="#cb66-13" aria-hidden="true" tabindex="-1"></a>i    <span class="ot">&lt;-</span> <span class="dv">2</span><span class="sc">:</span>S</span>
+<span id="cb66-14"><a href="#cb66-14" aria-hidden="true" tabindex="-1"></a>h <span class="ot">&lt;-</span> healthy<span class="sc">$</span>sdList<span class="sc">$</span>yMu[,i] </span>
+<span id="cb66-15"><a href="#cb66-15" aria-hidden="true" tabindex="-1"></a>m <span class="ot">&lt;-</span> morbid<span class="sc">$</span>sdList<span class="sc">$</span>yMu[,i] </span>
+<span id="cb66-16"><a href="#cb66-16" aria-hidden="true" tabindex="-1"></a>d <span class="ot">&lt;-</span> h <span class="sc">-</span> m</span>
+<span id="cb66-17"><a href="#cb66-17" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb66-18"><a href="#cb66-18" aria-hidden="true" tabindex="-1"></a>mk <span class="ot">&lt;-</span> d </span>
+<span id="cb66-19"><a href="#cb66-19" aria-hidden="true" tabindex="-1"></a>mk[ mk <span class="sc">&lt;</span> <span class="dv">0</span> ] <span class="ot">&lt;-</span> <span class="sc">-</span><span class="dv">1</span>                  <span class="co"># prevalence of healthy minus morbid predictions</span></span>
+<span id="cb66-20"><a href="#cb66-20" aria-hidden="true" tabindex="-1"></a>mk[ mk <span class="sc">&gt;</span> <span class="dv">0</span> ] <span class="ot">&lt;-</span> <span class="dv">0</span></span>
+<span id="cb66-21"><a href="#cb66-21" aria-hidden="true" tabindex="-1"></a>mk <span class="ot">&lt;-</span> <span class="fu">colSums</span>(mk)</span>
+<span id="cb66-22"><a href="#cb66-22" aria-hidden="true" tabindex="-1"></a>mk <span class="ot">&lt;-</span> <span class="fu">names</span>( mk[ <span class="fu">order</span>(mk) ] )</span>
+<span id="cb66-23"><a href="#cb66-23" aria-hidden="true" tabindex="-1"></a>ocol  <span class="ot">&lt;-</span> <span class="fu">colorRampPalette</span>( cols )( S <span class="sc">-</span> <span class="dv">1</span> )</span>
+<span id="cb66-24"><a href="#cb66-24" aria-hidden="true" tabindex="-1"></a><span class="fu">names</span>(ocol) <span class="ot">&lt;-</span> <span class="fu">rev</span>( mk )</span>
+<span id="cb66-25"><a href="#cb66-25" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb66-26"><a href="#cb66-26" aria-hidden="true" tabindex="-1"></a>host  <span class="ot">&lt;-</span> <span class="fu">as.character</span>(xdata<span class="sc">$</span>host)  <span class="co"># all host species</span></span>
+<span id="cb66-27"><a href="#cb66-27" aria-hidden="true" tabindex="-1"></a>hosts <span class="ot">&lt;-</span> <span class="fu">sort</span>( <span class="fu">unique</span>(host) )</span>
+<span id="cb66-28"><a href="#cb66-28" aria-hidden="true" tabindex="-1"></a>nhost <span class="ot">&lt;-</span> <span class="fu">length</span>(hosts)</span>
+<span id="cb66-29"><a href="#cb66-29" aria-hidden="true" tabindex="-1"></a>notu  <span class="ot">&lt;-</span> <span class="dv">10</span>                        <span class="co"># no. ranked OTUs to plot</span></span>
+<span id="cb66-30"><a href="#cb66-30" aria-hidden="true" tabindex="-1"></a>xwide <span class="ot">&lt;-</span> <span class="dv">20</span></span>
+<span id="cb66-31"><a href="#cb66-31" aria-hidden="true" tabindex="-1"></a>ylim  <span class="ot">&lt;-</span> <span class="fu">c</span>(<span class="dv">0</span>, <span class="dv">20</span>)</span>
+<span id="cb66-32"><a href="#cb66-32" aria-hidden="true" tabindex="-1"></a>bins  <span class="ot">&lt;-</span> <span class="sc">-</span>xwide<span class="sc">:</span>xwide</span>
+<span id="cb66-33"><a href="#cb66-33" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb66-34"><a href="#cb66-34" aria-hidden="true" tabindex="-1"></a><span class="fu">par</span>( <span class="at">mfrow=</span><span class="fu">c</span>(nhost, notu), <span class="at">bty =</span> <span class="st">&#39;n&#39;</span>, <span class="at">mar =</span> <span class="fu">c</span>(.<span class="dv">5</span>, <span class="dv">1</span>, <span class="dv">1</span>, .<span class="dv">5</span>), <span class="at">omi=</span><span class="fu">c</span>(.<span class="dv">4</span>,.<span class="dv">4</span>,.<span class="dv">4</span>,.<span class="dv">1</span>)  )</span>
+<span id="cb66-35"><a href="#cb66-35" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb66-36"><a href="#cb66-36" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span>(k <span class="cf">in</span> <span class="dv">1</span><span class="sc">:</span>nhost){</span>
+<span id="cb66-37"><a href="#cb66-37" aria-hidden="true" tabindex="-1"></a>  </span>
+<span id="cb66-38"><a href="#cb66-38" aria-hidden="true" tabindex="-1"></a>  mk <span class="ot">&lt;-</span> dk <span class="ot">&lt;-</span> d[ host <span class="sc">==</span> hosts[k], ]  <span class="co"># observations for host k</span></span>
+<span id="cb66-39"><a href="#cb66-39" aria-hidden="true" tabindex="-1"></a>  </span>
+<span id="cb66-40"><a href="#cb66-40" aria-hidden="true" tabindex="-1"></a>  mk[ mk <span class="sc">&lt;</span> <span class="dv">0</span> ] <span class="ot">&lt;-</span> <span class="sc">-</span><span class="dv">1</span>                  <span class="co"># rank prevalence of negative effects</span></span>
+<span id="cb66-41"><a href="#cb66-41" aria-hidden="true" tabindex="-1"></a>  mk[ mk <span class="sc">&gt;</span> <span class="dv">0</span> ] <span class="ot">&lt;-</span> <span class="dv">0</span></span>
+<span id="cb66-42"><a href="#cb66-42" aria-hidden="true" tabindex="-1"></a>  mk <span class="ot">&lt;-</span> <span class="fu">colSums</span>(mk)</span>
+<span id="cb66-43"><a href="#cb66-43" aria-hidden="true" tabindex="-1"></a>  mk <span class="ot">&lt;-</span> <span class="fu">names</span>( mk[ <span class="fu">order</span>(mk) ] )</span>
+<span id="cb66-44"><a href="#cb66-44" aria-hidden="true" tabindex="-1"></a>  </span>
+<span id="cb66-45"><a href="#cb66-45" aria-hidden="true" tabindex="-1"></a>  <span class="cf">for</span>(j <span class="cf">in</span> <span class="dv">1</span><span class="sc">:</span>notu){                   <span class="co"># plot highest ranked OTUs (h &lt;&lt; m)</span></span>
+<span id="cb66-46"><a href="#cb66-46" aria-hidden="true" tabindex="-1"></a>    yj <span class="ot">&lt;-</span> dk[,mk[j]]</span>
+<span id="cb66-47"><a href="#cb66-47" aria-hidden="true" tabindex="-1"></a>    yj[ yj <span class="sc">&lt;</span> <span class="sc">-</span>xwide ] <span class="ot">&lt;-</span> <span class="sc">-</span>xwide</span>
+<span id="cb66-48"><a href="#cb66-48" aria-hidden="true" tabindex="-1"></a>    yj[ yj <span class="sc">&gt;</span> xwide ] <span class="ot">&lt;-</span> xwide</span>
+<span id="cb66-49"><a href="#cb66-49" aria-hidden="true" tabindex="-1"></a>    </span>
+<span id="cb66-50"><a href="#cb66-50" aria-hidden="true" tabindex="-1"></a>    <span class="fu">hist</span>( yj, <span class="at">breaks =</span> bins, <span class="at">xlim =</span> <span class="fu">c</span>(<span class="sc">-</span>xwide, xwide),</span>
+<span id="cb66-51"><a href="#cb66-51" aria-hidden="true" tabindex="-1"></a>         <span class="at">ylim =</span> ylim, <span class="at">main =</span> <span class="fu">substr</span>(mk[j], <span class="dv">1</span>, <span class="dv">8</span>), <span class="at">xlab =</span> <span class="st">&#39;&#39;</span>, <span class="at">ylab=</span><span class="st">&#39;&#39;</span>, </span>
+<span id="cb66-52"><a href="#cb66-52" aria-hidden="true" tabindex="-1"></a>         <span class="at">col =</span> ocol[mk[j]], <span class="at">border =</span> ocol[mk[j]],  <span class="at">axes =</span> F)</span>
+<span id="cb66-53"><a href="#cb66-53" aria-hidden="true" tabindex="-1"></a>    <span class="fu">abline</span>(<span class="at">v =</span> <span class="dv">0</span>, <span class="at">col =</span> <span class="st">&#39;grey&#39;</span>)</span>
+<span id="cb66-54"><a href="#cb66-54" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb66-55"><a href="#cb66-55" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb66-56"><a href="#cb66-56" aria-hidden="true" tabindex="-1"></a>ylab <span class="ot">&lt;-</span> <span class="fu">paste0</span>( <span class="fu">rev</span>(hosts), <span class="at">collapse =</span> <span class="st">&#39;  &#39;</span> )</span>
+<span id="cb66-57"><a href="#cb66-57" aria-hidden="true" tabindex="-1"></a><span class="fu">mtext</span>( <span class="at">side =</span> <span class="dv">1</span>, <span class="st">&#39;Predicted prevalence in healthy minus morbid hosts&#39;</span>, <span class="at">outer=</span>T, <span class="at">line=</span><span class="dv">1</span>)</span>
+<span id="cb66-58"><a href="#cb66-58" aria-hidden="true" tabindex="-1"></a><span class="fu">mtext</span>( <span class="at">side =</span> <span class="dv">2</span>, ylab, <span class="at">outer=</span>T, <span class="at">line=</span><span class="dv">0</span>, <span class="at">cex=</span>.<span class="dv">8</span>)</span>
+<span id="cb66-59"><a href="#cb66-59" aria-hidden="true" tabindex="-1"></a><span class="fu">mtext</span>( <span class="at">side =</span> <span class="dv">3</span>, <span class="st">&#39;Most negative predictions by host spp&#39;</span>, <span class="at">outer =</span> T, <span class="at">line =</span> <span class="dv">1</span>)</span></code></pre></div>
 <p>Rows of plots show for a given host species the 10 OTUs having the largest negative difference between healthy and morbid host plants. Colors indicate the OTU rank for the same variable across all host species.</p>
 <p><br></p>
 </div>
@@ -1371,33 +1401,33 @@ code span.wa { color: #60a0b0; font-weight: bold; font-style: italic; } /* Warni
 <div id="input-data" class="section level3">
 <h3><span style="color:brown">input data</span></h3>
 <p>Data contained in <code>forestTraits</code> include predictors in <code>xdata</code>, a character vector of data types in <code>traitTypes</code>, and <code>treesDeZero</code>, which contains tree biomass in de-zeroed format. Here the data are loaded, re-zeroed with <code>gjamReZero</code>:</p>
-<div class="sourceCode" id="cb66"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb66-1"><a href="#cb66-1" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(repmis)</span>
-<span id="cb66-2"><a href="#cb66-2" aria-hidden="true" tabindex="-1"></a>d <span class="ot">&lt;-</span> <span class="st">&quot;https://github.com/jimclarkatduke/gjam/blob/master/forestTraits.RData?raw=True&quot;</span></span>
-<span id="cb66-3"><a href="#cb66-3" aria-hidden="true" tabindex="-1"></a><span class="fu">source_data</span>(d)</span>
-<span id="cb66-4"><a href="#cb66-4" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb66-5"><a href="#cb66-5" aria-hidden="true" tabindex="-1"></a>xdata <span class="ot">&lt;-</span> forestTraits<span class="sc">$</span>xdata                          <span class="co"># n X Q</span></span>
-<span id="cb66-6"><a href="#cb66-6" aria-hidden="true" tabindex="-1"></a>types <span class="ot">&lt;-</span> forestTraits<span class="sc">$</span>traitTypes                     <span class="co"># 12 trait types </span></span>
-<span id="cb66-7"><a href="#cb66-7" aria-hidden="true" tabindex="-1"></a>sbyt  <span class="ot">&lt;-</span> forestTraits<span class="sc">$</span>specByTrait                    <span class="co"># S X 12</span></span>
-<span id="cb66-8"><a href="#cb66-8" aria-hidden="true" tabindex="-1"></a>pbys  <span class="ot">&lt;-</span> <span class="fu">gjamReZero</span>(forestTraits<span class="sc">$</span>treesDeZero)        <span class="co"># n X S</span></span>
-<span id="cb66-9"><a href="#cb66-9" aria-hidden="true" tabindex="-1"></a>pbys  <span class="ot">&lt;-</span> <span class="fu">gjamTrimY</span>(pbys,<span class="dv">5</span>)<span class="sc">$</span>y                         <span class="co"># at least 5 plots</span></span>
-<span id="cb66-10"><a href="#cb66-10" aria-hidden="true" tabindex="-1"></a>sbyt  <span class="ot">&lt;-</span> sbyt[<span class="fu">match</span>(<span class="fu">colnames</span>(pbys),<span class="fu">rownames</span>(sbyt)),] <span class="co"># trait matrix matches ydata</span></span>
-<span id="cb66-11"><a href="#cb66-11" aria-hidden="true" tabindex="-1"></a><span class="fu">identical</span>(<span class="fu">rownames</span>(sbyt),<span class="fu">colnames</span>(pbys))</span></code></pre></div>
-<p>The matrix <code>pbys</code> holds biomass values for species, rounded off to reduce storage. The first six columns of <code>sbyt</code> are centered and standardized. The three ordinal classes are integer values, but do not represent an absolute scale (see below). The three groups of categorical variables in <code>data.frame sbyt</code> have different numbers of levels shown here:</p>
-<div class="sourceCode" id="cb67"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb67-1"><a href="#cb67-1" aria-hidden="true" tabindex="-1"></a><span class="fu">table</span>(sbyt<span class="sc">$</span>leaf)      <span class="co"># four levels</span></span>
-<span id="cb67-2"><a href="#cb67-2" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb67-3"><a href="#cb67-3" aria-hidden="true" tabindex="-1"></a><span class="fu">table</span>(sbyt<span class="sc">$</span>xylem)     <span class="co"># diffuse/tracheid vs ring-porous</span></span>
+<div class="sourceCode" id="cb67"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb67-1"><a href="#cb67-1" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(repmis)</span>
+<span id="cb67-2"><a href="#cb67-2" aria-hidden="true" tabindex="-1"></a>d <span class="ot">&lt;-</span> <span class="st">&quot;https://github.com/jimclarkatduke/gjam/blob/master/forestTraits.RData?raw=True&quot;</span></span>
+<span id="cb67-3"><a href="#cb67-3" aria-hidden="true" tabindex="-1"></a><span class="fu">source_data</span>(d)</span>
 <span id="cb67-4"><a href="#cb67-4" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb67-5"><a href="#cb67-5" aria-hidden="true" tabindex="-1"></a><span class="fu">table</span>(sbyt<span class="sc">$</span>repro)     <span class="co"># two levels</span></span></code></pre></div>
+<span id="cb67-5"><a href="#cb67-5" aria-hidden="true" tabindex="-1"></a>xdata <span class="ot">&lt;-</span> forestTraits<span class="sc">$</span>xdata                          <span class="co"># n X Q</span></span>
+<span id="cb67-6"><a href="#cb67-6" aria-hidden="true" tabindex="-1"></a>types <span class="ot">&lt;-</span> forestTraits<span class="sc">$</span>traitTypes                     <span class="co"># 12 trait types </span></span>
+<span id="cb67-7"><a href="#cb67-7" aria-hidden="true" tabindex="-1"></a>sbyt  <span class="ot">&lt;-</span> forestTraits<span class="sc">$</span>specByTrait                    <span class="co"># S X 12</span></span>
+<span id="cb67-8"><a href="#cb67-8" aria-hidden="true" tabindex="-1"></a>pbys  <span class="ot">&lt;-</span> <span class="fu">gjamReZero</span>(forestTraits<span class="sc">$</span>treesDeZero)        <span class="co"># n X S</span></span>
+<span id="cb67-9"><a href="#cb67-9" aria-hidden="true" tabindex="-1"></a>pbys  <span class="ot">&lt;-</span> <span class="fu">gjamTrimY</span>(pbys,<span class="dv">5</span>)<span class="sc">$</span>y                         <span class="co"># at least 5 plots</span></span>
+<span id="cb67-10"><a href="#cb67-10" aria-hidden="true" tabindex="-1"></a>sbyt  <span class="ot">&lt;-</span> sbyt[<span class="fu">match</span>(<span class="fu">colnames</span>(pbys),<span class="fu">rownames</span>(sbyt)),] <span class="co"># trait matrix matches ydata</span></span>
+<span id="cb67-11"><a href="#cb67-11" aria-hidden="true" tabindex="-1"></a><span class="fu">identical</span>(<span class="fu">rownames</span>(sbyt),<span class="fu">colnames</span>(pbys))</span></code></pre></div>
+<p>The matrix <code>pbys</code> holds biomass values for species, rounded off to reduce storage. The first six columns of <code>sbyt</code> are centered and standardized. The three ordinal classes are integer values, but do not represent an absolute scale (see below). The three groups of categorical variables in <code>data.frame sbyt</code> have different numbers of levels shown here:</p>
+<div class="sourceCode" id="cb68"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb68-1"><a href="#cb68-1" aria-hidden="true" tabindex="-1"></a><span class="fu">table</span>(sbyt<span class="sc">$</span>leaf)      <span class="co"># four levels</span></span>
+<span id="cb68-2"><a href="#cb68-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb68-3"><a href="#cb68-3" aria-hidden="true" tabindex="-1"></a><span class="fu">table</span>(sbyt<span class="sc">$</span>xylem)     <span class="co"># diffuse/tracheid vs ring-porous</span></span>
+<span id="cb68-4"><a href="#cb68-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb68-5"><a href="#cb68-5" aria-hidden="true" tabindex="-1"></a><span class="fu">table</span>(sbyt<span class="sc">$</span>repro)     <span class="co"># two levels</span></span></code></pre></div>
 <p>These species traits are translated into community-weighted means and modes (CWMM) by the function <code>gjamSpec2Trait</code>:</p>
-<div class="sourceCode" id="cb68"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb68-1"><a href="#cb68-1" aria-hidden="true" tabindex="-1"></a>tmp         <span class="ot">&lt;-</span> <span class="fu">gjamSpec2Trait</span>(pbys, sbyt, types)</span>
-<span id="cb68-2"><a href="#cb68-2" aria-hidden="true" tabindex="-1"></a>tTypes      <span class="ot">&lt;-</span> tmp<span class="sc">$</span>traitTypes                  <span class="co"># M = 15 values</span></span>
-<span id="cb68-3"><a href="#cb68-3" aria-hidden="true" tabindex="-1"></a>u           <span class="ot">&lt;-</span> tmp<span class="sc">$</span>plotByCWM                   <span class="co"># n X M</span></span>
-<span id="cb68-4"><a href="#cb68-4" aria-hidden="true" tabindex="-1"></a>censor      <span class="ot">&lt;-</span> tmp<span class="sc">$</span>censor                      <span class="co"># (0, 1) censoring, two-level CAT&#39;s</span></span>
-<span id="cb68-5"><a href="#cb68-5" aria-hidden="true" tabindex="-1"></a>specByTrait <span class="ot">&lt;-</span> tmp<span class="sc">$</span>specByTrait                 <span class="co"># S X M</span></span>
-<span id="cb68-6"><a href="#cb68-6" aria-hidden="true" tabindex="-1"></a>M           <span class="ot">&lt;-</span> <span class="fu">ncol</span>(u)</span>
-<span id="cb68-7"><a href="#cb68-7" aria-hidden="true" tabindex="-1"></a>n           <span class="ot">&lt;-</span> <span class="fu">nrow</span>(u)</span>
-<span id="cb68-8"><a href="#cb68-8" aria-hidden="true" tabindex="-1"></a>types                                          <span class="co"># 12 individual trait types</span></span>
-<span id="cb68-9"><a href="#cb68-9" aria-hidden="true" tabindex="-1"></a><span class="fu">cbind</span>(<span class="fu">colnames</span>(u),tTypes)                      <span class="co"># M trait names and types</span></span></code></pre></div>
+<div class="sourceCode" id="cb69"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb69-1"><a href="#cb69-1" aria-hidden="true" tabindex="-1"></a>tmp         <span class="ot">&lt;-</span> <span class="fu">gjamSpec2Trait</span>(pbys, sbyt, types)</span>
+<span id="cb69-2"><a href="#cb69-2" aria-hidden="true" tabindex="-1"></a>tTypes      <span class="ot">&lt;-</span> tmp<span class="sc">$</span>traitTypes                  <span class="co"># M = 15 values</span></span>
+<span id="cb69-3"><a href="#cb69-3" aria-hidden="true" tabindex="-1"></a>u           <span class="ot">&lt;-</span> tmp<span class="sc">$</span>plotByCWM                   <span class="co"># n X M</span></span>
+<span id="cb69-4"><a href="#cb69-4" aria-hidden="true" tabindex="-1"></a>censor      <span class="ot">&lt;-</span> tmp<span class="sc">$</span>censor                      <span class="co"># (0, 1) censoring, two-level CAT&#39;s</span></span>
+<span id="cb69-5"><a href="#cb69-5" aria-hidden="true" tabindex="-1"></a>specByTrait <span class="ot">&lt;-</span> tmp<span class="sc">$</span>specByTrait                 <span class="co"># S X M</span></span>
+<span id="cb69-6"><a href="#cb69-6" aria-hidden="true" tabindex="-1"></a>M           <span class="ot">&lt;-</span> <span class="fu">ncol</span>(u)</span>
+<span id="cb69-7"><a href="#cb69-7" aria-hidden="true" tabindex="-1"></a>n           <span class="ot">&lt;-</span> <span class="fu">nrow</span>(u)</span>
+<span id="cb69-8"><a href="#cb69-8" aria-hidden="true" tabindex="-1"></a>types                                          <span class="co"># 12 individual trait types</span></span>
+<span id="cb69-9"><a href="#cb69-9" aria-hidden="true" tabindex="-1"></a><span class="fu">cbind</span>(<span class="fu">colnames</span>(u),tTypes)                      <span class="co"># M trait names and types</span></span></code></pre></div>
 </div>
 <div id="traits-by-species" class="section level3">
 <h3><span style="color:brown">traits by species</span></h3>
@@ -1429,32 +1459,32 @@ code span.wa { color: #60a0b0; font-weight: bold; font-style: italic; } /* Warni
 <tr class="even">
 <td align="center"><code>maxHt</code></td>
 <td align="center"><code>CON</code></td>
-<td align="center">&quot;</td>
-<td align="left">&quot;</td>
+<td align="center">”</td>
+<td align="left">”</td>
 </tr>
 <tr class="odd">
 <td align="center"><code>leafN</code></td>
 <td align="center"><code>CON</code></td>
-<td align="center">&quot;</td>
-<td align="left">&quot;</td>
+<td align="center">”</td>
+<td align="left">”</td>
 </tr>
 <tr class="even">
 <td align="center"><code>leafP</code></td>
 <td align="center"><code>CON</code></td>
-<td align="center">&quot;</td>
-<td align="left">&quot;</td>
+<td align="center">”</td>
+<td align="left">”</td>
 </tr>
 <tr class="odd">
 <td align="center"><code>SLA</code></td>
 <td align="center"><code>CON</code></td>
-<td align="center">&quot;</td>
-<td align="left">&quot;</td>
+<td align="center">”</td>
+<td align="left">”</td>
 </tr>
 <tr class="even">
 <td align="center"><code>woodSG</code></td>
 <td align="center"><code>CON</code></td>
-<td align="center">&quot;</td>
-<td align="left">&quot;</td>
+<td align="center">”</td>
+<td align="left">”</td>
 </tr>
 <tr class="odd">
 <td align="center"><code>shade</code></td>
@@ -1465,14 +1495,14 @@ code span.wa { color: #60a0b0; font-weight: bold; font-style: italic; } /* Warni
 <tr class="even">
 <td align="center"><code>drought</code></td>
 <td align="center"><code>OC</code></td>
-<td align="center">&quot;</td>
-<td align="left">&quot;</td>
+<td align="center">”</td>
+<td align="left">”</td>
 </tr>
 <tr class="odd">
 <td align="center"><code>flood</code></td>
 <td align="center"><code>OC</code></td>
-<td align="center">&quot;</td>
-<td align="left">&quot;</td>
+<td align="center">”</td>
+<td align="left">”</td>
 </tr>
 <tr class="even">
 <td align="center"><code>leaf_broaddeciduous</code></td>
@@ -1483,20 +1513,20 @@ code span.wa { color: #60a0b0; font-weight: bold; font-style: italic; } /* Warni
 <tr class="odd">
 <td align="center"><code>leaf_broadevergreen</code></td>
 <td align="center"><code>FC</code></td>
-<td align="center">&quot;</td>
-<td align="left">&quot;</td>
+<td align="center">”</td>
+<td align="left">”</td>
 </tr>
 <tr class="even">
 <td align="center"><code>leaf_needleevergreen</code></td>
 <td align="center"><code>FC</code></td>
-<td align="center">&quot;</td>
-<td align="left">&quot;</td>
+<td align="center">”</td>
+<td align="left">”</td>
 </tr>
 <tr class="odd">
 <td align="center"><code>leaf_other</code></td>
 <td align="center"><code>FC</code></td>
-<td align="center">&quot;</td>
-<td align="left">&quot;</td>
+<td align="center">”</td>
+<td align="left">”</td>
 </tr>
 <tr class="even">
 <td align="center"><code>repro_monoecious</code></td>
@@ -1507,8 +1537,8 @@ code span.wa { color: #60a0b0; font-weight: bold; font-style: italic; } /* Warni
 <tr class="odd">
 <td align="center"><code>xylem_ring</code></td>
 <td align="center"><code>CA</code></td>
-<td align="center">&quot;</td>
-<td align="left">&quot;</td>
+<td align="center">”</td>
+<td align="left">”</td>
 </tr>
 </tbody>
 </table>
@@ -1516,8 +1546,8 @@ code span.wa { color: #60a0b0; font-weight: bold; font-style: italic; } /* Warni
 <p>The three <code>OC</code> variables are ordinal classes, lacking an absolute scale–the partition must be estimated.</p>
 <p>The four fractional composition <code>FC</code> columns are the levels of the single <code>CAT</code> variable <code>leaf</code>, expanded by the function <code>gjamSpec2Trait</code>.</p>
 <p>The last two traits in <code>u</code> are fractions with two classes, only one of which is included here. They are censored at both 0 and 1, the intervals <span class="math inline">\((-\infty, 0)\)</span> and <span class="math inline">\((1, \infty)\)</span>. This censoring can be generated using <code>gjamCensorY</code>:</p>
-<div class="sourceCode" id="cb69"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb69-1"><a href="#cb69-1" aria-hidden="true" tabindex="-1"></a>censorList    <span class="ot">&lt;-</span> <span class="fu">gjamCensorY</span>(<span class="at">values =</span> <span class="fu">c</span>(<span class="dv">0</span>,<span class="dv">1</span>), <span class="at">intervals =</span> <span class="fu">cbind</span>( <span class="fu">c</span>(<span class="sc">-</span><span class="cn">Inf</span>,<span class="dv">0</span>),<span class="fu">c</span>(<span class="dv">1</span>,<span class="cn">Inf</span>) ), </span>
-<span id="cb69-2"><a href="#cb69-2" aria-hidden="true" tabindex="-1"></a>                             <span class="at">y =</span> u, <span class="at">whichcol =</span> <span class="fu">c</span>(<span class="dv">13</span><span class="sc">:</span><span class="dv">14</span>))<span class="sc">$</span>censor</span></code></pre></div>
+<div class="sourceCode" id="cb70"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb70-1"><a href="#cb70-1" aria-hidden="true" tabindex="-1"></a>censorList    <span class="ot">&lt;-</span> <span class="fu">gjamCensorY</span>(<span class="at">values =</span> <span class="fu">c</span>(<span class="dv">0</span>,<span class="dv">1</span>), <span class="at">intervals =</span> <span class="fu">cbind</span>( <span class="fu">c</span>(<span class="sc">-</span><span class="cn">Inf</span>,<span class="dv">0</span>),<span class="fu">c</span>(<span class="dv">1</span>,<span class="cn">Inf</span>) ), </span>
+<span id="cb70-2"><a href="#cb70-2" aria-hidden="true" tabindex="-1"></a>                             <span class="at">y =</span> u, <span class="at">whichcol =</span> <span class="fu">c</span>(<span class="dv">13</span><span class="sc">:</span><span class="dv">14</span>))<span class="sc">$</span>censor</span></code></pre></div>
 <p>This censoring was already done with <code>gjamSpec2Trait</code>, which knows to treat <code>&#39;CAT&#39;</code> data with only two levels as censored <code>&#39;CA&#39;</code> data. In this case the <code>values = c(0,1)</code> indicates that zeros and ones in the data indicate censoring. The <code>intervals</code> matrix gives their ranges.</p>
 </div>
 <div id="factors-in-this-example" class="section level3">
@@ -1526,38 +1556,38 @@ code span.wa { color: #60a0b0; font-weight: bold; font-style: italic; } /* Warni
 <p>In <code>xdata</code> the variable <code>soil</code> is a multilevel factor, which includes soil types that are both common and have potentially strong effects. Here are the first few rows of <code>xdata</code>:</p>
 <p>I used the name <code>reference</code> for a soil type to aggregate types that are rare. Factor levels that rarely occur cannot be estimated in the model.</p>
 <p>The R function <code>relevel</code> allows definition of a reference level. In this case I want to compare levels to the reference soil type <code>reference</code>:</p>
-<div class="sourceCode" id="cb70"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb70-1"><a href="#cb70-1" aria-hidden="true" tabindex="-1"></a>xdata<span class="sc">$</span>soil <span class="ot">&lt;-</span> <span class="fu">relevel</span>(xdata<span class="sc">$</span>soil,<span class="st">&#39;reference&#39;</span>)</span></code></pre></div>
+<div class="sourceCode" id="cb71"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb71-1"><a href="#cb71-1" aria-hidden="true" tabindex="-1"></a>xdata<span class="sc">$</span>soil <span class="ot">&lt;-</span> <span class="fu">relevel</span>(xdata<span class="sc">$</span>soil,<span class="st">&#39;reference&#39;</span>)</span></code></pre></div>
 <p>To avoid confusion, contrasts can be inspected as <code>output$modelSummary$contrasts</code>. If the reference class is all zeros and other classes are zeros and ones, then the intercept is the reference class.</p>
 </div>
 <div id="trm-analysis" class="section level3">
 <h3><span style="color:brown">TRM analysis</span></h3>
 <p>Here is an analysis of the data, with 20 holdout plots. Predictors in <code>xdata</code> are winter temperature (<code>temp</code>), local <code>moisture</code>, climatic moisture <code>deficit</code> and <code>soil</code>. As discussed above, the variable <code>soil</code> is a multi-level factor.</p>
-<div class="sourceCode" id="cb71"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb71-1"><a href="#cb71-1" aria-hidden="true" tabindex="-1"></a>ml  <span class="ot">&lt;-</span> <span class="fu">list</span>(<span class="at">ng =</span> <span class="dv">3000</span>, <span class="at">burnin =</span> <span class="dv">500</span>, <span class="at">typeNames =</span> tTypes, <span class="at">holdoutN =</span> <span class="dv">20</span>,</span>
-<span id="cb71-2"><a href="#cb71-2" aria-hidden="true" tabindex="-1"></a>            <span class="at">censor=</span>censor, <span class="at">notStandard =</span> <span class="fu">c</span>(<span class="st">&#39;u1&#39;</span>,<span class="st">&#39;u2&#39;</span>,<span class="st">&#39;u3&#39;</span>))</span>
-<span id="cb71-3"><a href="#cb71-3" aria-hidden="true" tabindex="-1"></a>out <span class="ot">&lt;-</span> <span class="fu">gjam</span>(<span class="sc">~</span> temp <span class="sc">+</span> stdage <span class="sc">+</span> moisture<span class="sc">*</span>deficit <span class="sc">+</span> deficit<span class="sc">*</span>soil, </span>
-<span id="cb71-4"><a href="#cb71-4" aria-hidden="true" tabindex="-1"></a>                 <span class="at">xdata =</span> xdata, <span class="at">ydata =</span> u, <span class="at">modelList =</span> ml)</span>
-<span id="cb71-5"><a href="#cb71-5" aria-hidden="true" tabindex="-1"></a>tnames <span class="ot">&lt;-</span> <span class="fu">colnames</span>(u)</span>
-<span id="cb71-6"><a href="#cb71-6" aria-hidden="true" tabindex="-1"></a>sc <span class="ot">&lt;-</span> <span class="fu">rep</span>(<span class="st">&#39;black&#39;</span>, M)                                  <span class="co"># highlight types</span></span>
-<span id="cb71-7"><a href="#cb71-7" aria-hidden="true" tabindex="-1"></a>wo <span class="ot">&lt;-</span> <span class="fu">which</span>(tnames <span class="sc">%in%</span> <span class="fu">c</span>(<span class="st">&quot;leafN&quot;</span>,<span class="st">&quot;leafP&quot;</span>,<span class="st">&quot;SLA&quot;</span>) )     <span class="co"># foliar traits</span></span>
-<span id="cb71-8"><a href="#cb71-8" aria-hidden="true" tabindex="-1"></a>wf <span class="ot">&lt;-</span> <span class="fu">grep</span>(<span class="st">&quot;leaf&quot;</span>,tnames)                              <span class="co"># leaf habit</span></span>
-<span id="cb71-9"><a href="#cb71-9" aria-hidden="true" tabindex="-1"></a>wc <span class="ot">&lt;-</span> <span class="fu">which</span>(tnames <span class="sc">%in%</span> <span class="fu">c</span>(<span class="st">&quot;woodSG&quot;</span>,<span class="st">&quot;diffuse&quot;</span>,<span class="st">&quot;ring&quot;</span>) ) <span class="co"># wood anatomy</span></span>
-<span id="cb71-10"><a href="#cb71-10" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb71-11"><a href="#cb71-11" aria-hidden="true" tabindex="-1"></a>sc[wc] <span class="ot">&lt;-</span> <span class="st">&#39;brown&#39;</span></span>
-<span id="cb71-12"><a href="#cb71-12" aria-hidden="true" tabindex="-1"></a>sc[wf] <span class="ot">&lt;-</span> <span class="st">&#39;darkblue&#39;</span></span>
-<span id="cb71-13"><a href="#cb71-13" aria-hidden="true" tabindex="-1"></a>sc[wo] <span class="ot">&lt;-</span> <span class="st">&#39;darkgreen&#39;</span></span>
-<span id="cb71-14"><a href="#cb71-14" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb71-15"><a href="#cb71-15" aria-hidden="true" tabindex="-1"></a>pl  <span class="ot">&lt;-</span> <span class="fu">list</span>(<span class="at">GRIDPLOTS =</span> <span class="cn">TRUE</span>, <span class="at">PLOTALLY =</span> T, <span class="at">specColor =</span> sc)</span>
-<span id="cb71-16"><a href="#cb71-16" aria-hidden="true" tabindex="-1"></a><span class="fu">gjamPlot</span>(<span class="at">output =</span> out, <span class="at">plotPars =</span> pl)</span>
-<span id="cb71-17"><a href="#cb71-17" aria-hidden="true" tabindex="-1"></a><span class="fu">summary</span>(out)</span></code></pre></div>
+<div class="sourceCode" id="cb72"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb72-1"><a href="#cb72-1" aria-hidden="true" tabindex="-1"></a>ml  <span class="ot">&lt;-</span> <span class="fu">list</span>(<span class="at">ng =</span> <span class="dv">3000</span>, <span class="at">burnin =</span> <span class="dv">500</span>, <span class="at">typeNames =</span> tTypes, <span class="at">holdoutN =</span> <span class="dv">20</span>,</span>
+<span id="cb72-2"><a href="#cb72-2" aria-hidden="true" tabindex="-1"></a>            <span class="at">censor=</span>censor, <span class="at">notStandard =</span> <span class="fu">c</span>(<span class="st">&#39;u1&#39;</span>,<span class="st">&#39;u2&#39;</span>,<span class="st">&#39;u3&#39;</span>))</span>
+<span id="cb72-3"><a href="#cb72-3" aria-hidden="true" tabindex="-1"></a>out <span class="ot">&lt;-</span> <span class="fu">gjam</span>(<span class="sc">~</span> temp <span class="sc">+</span> stdage <span class="sc">+</span> moisture<span class="sc">*</span>deficit <span class="sc">+</span> deficit<span class="sc">*</span>soil, </span>
+<span id="cb72-4"><a href="#cb72-4" aria-hidden="true" tabindex="-1"></a>                 <span class="at">xdata =</span> xdata, <span class="at">ydata =</span> u, <span class="at">modelList =</span> ml)</span>
+<span id="cb72-5"><a href="#cb72-5" aria-hidden="true" tabindex="-1"></a>tnames <span class="ot">&lt;-</span> <span class="fu">colnames</span>(u)</span>
+<span id="cb72-6"><a href="#cb72-6" aria-hidden="true" tabindex="-1"></a>sc <span class="ot">&lt;-</span> <span class="fu">rep</span>(<span class="st">&#39;black&#39;</span>, M)                                  <span class="co"># highlight types</span></span>
+<span id="cb72-7"><a href="#cb72-7" aria-hidden="true" tabindex="-1"></a>wo <span class="ot">&lt;-</span> <span class="fu">which</span>(tnames <span class="sc">%in%</span> <span class="fu">c</span>(<span class="st">&quot;leafN&quot;</span>,<span class="st">&quot;leafP&quot;</span>,<span class="st">&quot;SLA&quot;</span>) )     <span class="co"># foliar traits</span></span>
+<span id="cb72-8"><a href="#cb72-8" aria-hidden="true" tabindex="-1"></a>wf <span class="ot">&lt;-</span> <span class="fu">grep</span>(<span class="st">&quot;leaf&quot;</span>,tnames)                              <span class="co"># leaf habit</span></span>
+<span id="cb72-9"><a href="#cb72-9" aria-hidden="true" tabindex="-1"></a>wc <span class="ot">&lt;-</span> <span class="fu">which</span>(tnames <span class="sc">%in%</span> <span class="fu">c</span>(<span class="st">&quot;woodSG&quot;</span>,<span class="st">&quot;diffuse&quot;</span>,<span class="st">&quot;ring&quot;</span>) ) <span class="co"># wood anatomy</span></span>
+<span id="cb72-10"><a href="#cb72-10" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb72-11"><a href="#cb72-11" aria-hidden="true" tabindex="-1"></a>sc[wc] <span class="ot">&lt;-</span> <span class="st">&#39;brown&#39;</span></span>
+<span id="cb72-12"><a href="#cb72-12" aria-hidden="true" tabindex="-1"></a>sc[wf] <span class="ot">&lt;-</span> <span class="st">&#39;darkblue&#39;</span></span>
+<span id="cb72-13"><a href="#cb72-13" aria-hidden="true" tabindex="-1"></a>sc[wo] <span class="ot">&lt;-</span> <span class="st">&#39;darkgreen&#39;</span></span>
+<span id="cb72-14"><a href="#cb72-14" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb72-15"><a href="#cb72-15" aria-hidden="true" tabindex="-1"></a>pl  <span class="ot">&lt;-</span> <span class="fu">list</span>(<span class="at">GRIDPLOTS =</span> <span class="cn">TRUE</span>, <span class="at">PLOTALLY =</span> T, <span class="at">specColor =</span> sc)</span>
+<span id="cb72-16"><a href="#cb72-16" aria-hidden="true" tabindex="-1"></a><span class="fu">gjamPlot</span>(<span class="at">output =</span> out, <span class="at">plotPars =</span> pl)</span>
+<span id="cb72-17"><a href="#cb72-17" aria-hidden="true" tabindex="-1"></a><span class="fu">summary</span>(out)</span></code></pre></div>
 <p>The model fit is interpreted in the same way as other gjam analyses. Note that <code>specColor</code> is used to highlight different types of traits in the posterior plots for values in coefficient matrix <span class="math inline">\(\mathbf{A}\)</span>. Parameter estimates are contained in <code>parameters</code>,</p>
-<div class="sourceCode" id="cb72"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb72-1"><a href="#cb72-1" aria-hidden="true" tabindex="-1"></a>out<span class="sc">$</span>parameters<span class="sc">$</span>betaMu         <span class="co"># Q by M coefficient matrix alpha</span></span>
-<span id="cb72-2"><a href="#cb72-2" aria-hidden="true" tabindex="-1"></a>out<span class="sc">$</span>parameters<span class="sc">$</span>betaStandXmu   <span class="co"># Q by M standardized for X</span></span>
-<span id="cb72-3"><a href="#cb72-3" aria-hidden="true" tabindex="-1"></a>out<span class="sc">$</span>parameters<span class="sc">$</span>betaStandXWmu  <span class="co"># (Q-F) by M standardized for W/X, centered factors</span></span>
-<span id="cb72-4"><a href="#cb72-4" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb72-5"><a href="#cb72-5" aria-hidden="true" tabindex="-1"></a>out<span class="sc">$</span>parameters<span class="sc">$</span>betaTable        <span class="co"># QM by stats posterior summary</span></span>
-<span id="cb72-6"><a href="#cb72-6" aria-hidden="true" tabindex="-1"></a> </span>
-<span id="cb72-7"><a href="#cb72-7" aria-hidden="true" tabindex="-1"></a>out<span class="sc">$</span>parameters<span class="sc">$</span>sigMu         <span class="co"># M by M covariance matrix omega</span></span>
-<span id="cb72-8"><a href="#cb72-8" aria-hidden="true" tabindex="-1"></a>out<span class="sc">$</span>parameters<span class="sc">$</span>sigSe         <span class="co"># M by M covariance std errors</span></span></code></pre></div>
+<div class="sourceCode" id="cb73"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb73-1"><a href="#cb73-1" aria-hidden="true" tabindex="-1"></a>out<span class="sc">$</span>parameters<span class="sc">$</span>betaMu         <span class="co"># Q by M coefficient matrix alpha</span></span>
+<span id="cb73-2"><a href="#cb73-2" aria-hidden="true" tabindex="-1"></a>out<span class="sc">$</span>parameters<span class="sc">$</span>betaStandXmu   <span class="co"># Q by M standardized for X</span></span>
+<span id="cb73-3"><a href="#cb73-3" aria-hidden="true" tabindex="-1"></a>out<span class="sc">$</span>parameters<span class="sc">$</span>betaStandXWmu  <span class="co"># (Q-F) by M standardized for W/X, centered factors</span></span>
+<span id="cb73-4"><a href="#cb73-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb73-5"><a href="#cb73-5" aria-hidden="true" tabindex="-1"></a>out<span class="sc">$</span>parameters<span class="sc">$</span>betaTable        <span class="co"># QM by stats posterior summary</span></span>
+<span id="cb73-6"><a href="#cb73-6" aria-hidden="true" tabindex="-1"></a> </span>
+<span id="cb73-7"><a href="#cb73-7" aria-hidden="true" tabindex="-1"></a>out<span class="sc">$</span>parameters<span class="sc">$</span>sigMu         <span class="co"># M by M covariance matrix omega</span></span>
+<span id="cb73-8"><a href="#cb73-8" aria-hidden="true" tabindex="-1"></a>out<span class="sc">$</span>parameters<span class="sc">$</span>sigSe         <span class="co"># M by M covariance std errors</span></span></code></pre></div>
 <p>The <code>output</code> list contains a large number of diagnostics explained in help pages.<br />
 The matrices <code>out$parameters$cutMu</code> and <code>out$parameters$cutSe</code> hold the estimates for the partion for ordinal (<code>&#39;OC&#39;</code>) variables shade, drought, and flood tolerance. Each has three fitted cutpoints, because the first is fixed, with three estimates to partition the remaining four intervals.</p>
 </div>
@@ -1569,47 +1599,47 @@ The matrices <code>out$parameters$cutMu</code> and <code>out$parameters$cutSe</c
 <p><span class="math display">\[\frac{dy_{s}}{dx_{q}} = \beta_{q,s} + \beta_{qq&#39;,s}x_{q&#39;}\]</span></p>
 <p>which depends not on <span class="math inline">\(x_{q}\)</span>, but rather on <span class="math inline">\(x_{q&#39;}\)</span>. So if I want to know how interactions affect the response I have to decide on values for all of the predictors that are involved in interactions. These values are passed to <code>gjamIIE</code> in <code>xvector</code>. The default has <code>sdScaleX = F</code>, which means that effects can be compared on the basis of variation in <span class="math inline">\(\mathbf{X}\)</span>.</p>
 <p>In this example interactions involve <code>moisture</code>, <code>deficit</code>, and the multi-level factor <code>soil</code>, as specified in the <code>formula</code> passed to <code>gjam</code>. The first row of the design matrix is used with <code>moisture</code> and <code>deficit</code> set to -1 or +1 standard deviation to compare dry and wet sites in a dry climate:</p>
-<div class="sourceCode" id="cb73"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb73-1"><a href="#cb73-1" aria-hidden="true" tabindex="-1"></a>xdrydry <span class="ot">&lt;-</span> xwetdry  <span class="ot">&lt;-</span> out<span class="sc">$</span>inputs<span class="sc">$</span>xUnstand[<span class="dv">1</span>,]</span>
-<span id="cb73-2"><a href="#cb73-2" aria-hidden="true" tabindex="-1"></a>xdrydry[<span class="st">&#39;moisture&#39;</span>] <span class="ot">&lt;-</span> xdrydry[<span class="st">&#39;deficit&#39;</span>] <span class="ot">&lt;-</span> <span class="sc">-</span><span class="dv">1</span></span>
-<span id="cb73-3"><a href="#cb73-3" aria-hidden="true" tabindex="-1"></a>xwetdry[<span class="st">&#39;moisture&#39;</span>] <span class="ot">&lt;-</span> <span class="dv">1</span></span>
-<span id="cb73-4"><a href="#cb73-4" aria-hidden="true" tabindex="-1"></a>xwetdry[<span class="st">&#39;deficit&#39;</span>]  <span class="ot">&lt;-</span> <span class="sc">-</span><span class="dv">1</span></span></code></pre></div>
+<div class="sourceCode" id="cb74"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb74-1"><a href="#cb74-1" aria-hidden="true" tabindex="-1"></a>xdrydry <span class="ot">&lt;-</span> xwetdry  <span class="ot">&lt;-</span> out<span class="sc">$</span>inputs<span class="sc">$</span>xUnstand[<span class="dv">1</span>,]</span>
+<span id="cb74-2"><a href="#cb74-2" aria-hidden="true" tabindex="-1"></a>xdrydry[<span class="st">&#39;moisture&#39;</span>] <span class="ot">&lt;-</span> xdrydry[<span class="st">&#39;deficit&#39;</span>] <span class="ot">&lt;-</span> <span class="sc">-</span><span class="dv">1</span></span>
+<span id="cb74-3"><a href="#cb74-3" aria-hidden="true" tabindex="-1"></a>xwetdry[<span class="st">&#39;moisture&#39;</span>] <span class="ot">&lt;-</span> <span class="dv">1</span></span>
+<span id="cb74-4"><a href="#cb74-4" aria-hidden="true" tabindex="-1"></a>xwetdry[<span class="st">&#39;deficit&#39;</span>]  <span class="ot">&lt;-</span> <span class="sc">-</span><span class="dv">1</span></span></code></pre></div>
 <p>The first observation is from the reference soil level <code>reference</code>, so all other soil classes are zero. Here is a plot of main effects and interactions for deciduous and evergreen traits:</p>
-<div class="sourceCode" id="cb74"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb74-1"><a href="#cb74-1" aria-hidden="true" tabindex="-1"></a><span class="fu">par</span>(<span class="at">mfrow=</span><span class="fu">c</span>(<span class="dv">2</span>,<span class="dv">2</span>), <span class="at">bty=</span><span class="st">&#39;n&#39;</span>, <span class="at">mar=</span><span class="fu">c</span>(<span class="dv">1</span>,<span class="dv">3</span>,<span class="dv">1</span>,<span class="dv">1</span>), <span class="at">oma =</span> <span class="fu">c</span>(<span class="dv">0</span>,<span class="dv">0</span>,<span class="dv">0</span>,<span class="dv">0</span>), </span>
-<span id="cb74-2"><a href="#cb74-2" aria-hidden="true" tabindex="-1"></a>    <span class="at">mar =</span> <span class="fu">c</span>(<span class="dv">3</span>,<span class="dv">2</span>,<span class="dv">2</span>,<span class="dv">1</span>), <span class="at">tcl =</span> <span class="sc">-</span><span class="fl">0.5</span>, <span class="at">mgp =</span> <span class="fu">c</span>(<span class="dv">3</span>,<span class="dv">1</span>,<span class="dv">0</span>), <span class="at">family=</span><span class="st">&#39;&#39;</span>)</span>
-<span id="cb74-3"><a href="#cb74-3" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb74-4"><a href="#cb74-4" aria-hidden="true" tabindex="-1"></a>fit1 <span class="ot">&lt;-</span> <span class="fu">gjamIIE</span>(<span class="at">output =</span> out, <span class="at">xvector =</span> xdrydry)</span>
-<span id="cb74-5"><a href="#cb74-5" aria-hidden="true" tabindex="-1"></a>fit2 <span class="ot">&lt;-</span> <span class="fu">gjamIIE</span>(<span class="at">output =</span> out, <span class="at">xvector =</span> xwetdry)</span>
-<span id="cb74-6"><a href="#cb74-6" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb74-7"><a href="#cb74-7" aria-hidden="true" tabindex="-1"></a><span class="fu">gjamIIEplot</span>(fit1, <span class="at">response =</span> <span class="st">&#39;leafbroaddeciduous&#39;</span>, </span>
-<span id="cb74-8"><a href="#cb74-8" aria-hidden="true" tabindex="-1"></a>            <span class="at">effectMu =</span> <span class="fu">c</span>(<span class="st">&#39;main&#39;</span>,<span class="st">&#39;int&#39;</span>), <span class="at">effectSd =</span> <span class="fu">c</span>(<span class="st">&#39;main&#39;</span>,<span class="st">&#39;int&#39;</span>), </span>
-<span id="cb74-9"><a href="#cb74-9" aria-hidden="true" tabindex="-1"></a>            <span class="at">legLoc =</span> <span class="st">&#39;bottomleft&#39;</span>, <span class="at">ylim=</span><span class="fu">c</span>(<span class="sc">-</span>.<span class="dv">31</span>,.<span class="dv">3</span>))</span>
-<span id="cb74-10"><a href="#cb74-10" aria-hidden="true" tabindex="-1"></a><span class="fu">title</span>(<span class="st">&#39;deciduous&#39;</span>)</span>
-<span id="cb74-11"><a href="#cb74-11" aria-hidden="true" tabindex="-1"></a><span class="fu">gjamIIEplot</span>(fit1, <span class="at">response =</span> <span class="st">&#39;leafneedleevergreen&#39;</span>, </span>
-<span id="cb74-12"><a href="#cb74-12" aria-hidden="true" tabindex="-1"></a>            <span class="at">effectMu =</span> <span class="fu">c</span>(<span class="st">&#39;main&#39;</span>,<span class="st">&#39;int&#39;</span>), <span class="at">effectSd =</span> <span class="fu">c</span>(<span class="st">&#39;main&#39;</span>,<span class="st">&#39;int&#39;</span>), </span>
-<span id="cb74-13"><a href="#cb74-13" aria-hidden="true" tabindex="-1"></a>            <span class="at">legLoc =</span> <span class="st">&#39;bottomleft&#39;</span>, <span class="at">ylim=</span><span class="fu">c</span>(<span class="sc">-</span>.<span class="dv">3</span>,.<span class="dv">3</span>))</span>
-<span id="cb74-14"><a href="#cb74-14" aria-hidden="true" tabindex="-1"></a><span class="fu">title</span>(<span class="st">&#39;evergreen&#39;</span>)</span>
-<span id="cb74-15"><a href="#cb74-15" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb74-16"><a href="#cb74-16" aria-hidden="true" tabindex="-1"></a><span class="fu">gjamIIEplot</span>(fit2, <span class="at">response =</span> <span class="st">&#39;leafbroaddeciduous&#39;</span>, </span>
-<span id="cb74-17"><a href="#cb74-17" aria-hidden="true" tabindex="-1"></a>            <span class="at">effectMu =</span> <span class="fu">c</span>(<span class="st">&#39;main&#39;</span>,<span class="st">&#39;int&#39;</span>), <span class="at">effectSd =</span> <span class="fu">c</span>(<span class="st">&#39;main&#39;</span>,<span class="st">&#39;int&#39;</span>), </span>
-<span id="cb74-18"><a href="#cb74-18" aria-hidden="true" tabindex="-1"></a>            <span class="at">legLoc =</span> <span class="st">&#39;bottomleft&#39;</span>, <span class="at">ylim=</span><span class="fu">c</span>(<span class="sc">-</span>.<span class="dv">3</span>,.<span class="dv">3</span>))</span>
-<span id="cb74-19"><a href="#cb74-19" aria-hidden="true" tabindex="-1"></a><span class="fu">gjamIIEplot</span>(fit2, <span class="at">response =</span> <span class="st">&#39;leafneedleevergreen&#39;</span>, </span>
-<span id="cb74-20"><a href="#cb74-20" aria-hidden="true" tabindex="-1"></a>            <span class="at">effectMu =</span> <span class="fu">c</span>(<span class="st">&#39;main&#39;</span>,<span class="st">&#39;int&#39;</span>), <span class="at">effectSd =</span> <span class="fu">c</span>(<span class="st">&#39;main&#39;</span>,<span class="st">&#39;int&#39;</span>), </span>
-<span id="cb74-21"><a href="#cb74-21" aria-hidden="true" tabindex="-1"></a>            <span class="at">legLoc =</span> <span class="st">&#39;bottomleft&#39;</span>, <span class="at">ylim=</span><span class="fu">c</span>(<span class="sc">-</span>.<span class="dv">3</span>,.<span class="dv">3</span>))</span></code></pre></div>
+<div class="sourceCode" id="cb75"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb75-1"><a href="#cb75-1" aria-hidden="true" tabindex="-1"></a><span class="fu">par</span>(<span class="at">mfrow=</span><span class="fu">c</span>(<span class="dv">2</span>,<span class="dv">2</span>), <span class="at">bty=</span><span class="st">&#39;n&#39;</span>, <span class="at">mar=</span><span class="fu">c</span>(<span class="dv">1</span>,<span class="dv">3</span>,<span class="dv">1</span>,<span class="dv">1</span>), <span class="at">oma =</span> <span class="fu">c</span>(<span class="dv">0</span>,<span class="dv">0</span>,<span class="dv">0</span>,<span class="dv">0</span>), </span>
+<span id="cb75-2"><a href="#cb75-2" aria-hidden="true" tabindex="-1"></a>    <span class="at">mar =</span> <span class="fu">c</span>(<span class="dv">3</span>,<span class="dv">2</span>,<span class="dv">2</span>,<span class="dv">1</span>), <span class="at">tcl =</span> <span class="sc">-</span><span class="fl">0.5</span>, <span class="at">mgp =</span> <span class="fu">c</span>(<span class="dv">3</span>,<span class="dv">1</span>,<span class="dv">0</span>), <span class="at">family=</span><span class="st">&#39;&#39;</span>)</span>
+<span id="cb75-3"><a href="#cb75-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb75-4"><a href="#cb75-4" aria-hidden="true" tabindex="-1"></a>fit1 <span class="ot">&lt;-</span> <span class="fu">gjamIIE</span>(<span class="at">output =</span> out, <span class="at">xvector =</span> xdrydry)</span>
+<span id="cb75-5"><a href="#cb75-5" aria-hidden="true" tabindex="-1"></a>fit2 <span class="ot">&lt;-</span> <span class="fu">gjamIIE</span>(<span class="at">output =</span> out, <span class="at">xvector =</span> xwetdry)</span>
+<span id="cb75-6"><a href="#cb75-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb75-7"><a href="#cb75-7" aria-hidden="true" tabindex="-1"></a><span class="fu">gjamIIEplot</span>(fit1, <span class="at">response =</span> <span class="st">&#39;leafbroaddeciduous&#39;</span>, </span>
+<span id="cb75-8"><a href="#cb75-8" aria-hidden="true" tabindex="-1"></a>            <span class="at">effectMu =</span> <span class="fu">c</span>(<span class="st">&#39;main&#39;</span>,<span class="st">&#39;int&#39;</span>), <span class="at">effectSd =</span> <span class="fu">c</span>(<span class="st">&#39;main&#39;</span>,<span class="st">&#39;int&#39;</span>), </span>
+<span id="cb75-9"><a href="#cb75-9" aria-hidden="true" tabindex="-1"></a>            <span class="at">legLoc =</span> <span class="st">&#39;bottomleft&#39;</span>, <span class="at">ylim=</span><span class="fu">c</span>(<span class="sc">-</span>.<span class="dv">31</span>,.<span class="dv">3</span>))</span>
+<span id="cb75-10"><a href="#cb75-10" aria-hidden="true" tabindex="-1"></a><span class="fu">title</span>(<span class="st">&#39;deciduous&#39;</span>)</span>
+<span id="cb75-11"><a href="#cb75-11" aria-hidden="true" tabindex="-1"></a><span class="fu">gjamIIEplot</span>(fit1, <span class="at">response =</span> <span class="st">&#39;leafneedleevergreen&#39;</span>, </span>
+<span id="cb75-12"><a href="#cb75-12" aria-hidden="true" tabindex="-1"></a>            <span class="at">effectMu =</span> <span class="fu">c</span>(<span class="st">&#39;main&#39;</span>,<span class="st">&#39;int&#39;</span>), <span class="at">effectSd =</span> <span class="fu">c</span>(<span class="st">&#39;main&#39;</span>,<span class="st">&#39;int&#39;</span>), </span>
+<span id="cb75-13"><a href="#cb75-13" aria-hidden="true" tabindex="-1"></a>            <span class="at">legLoc =</span> <span class="st">&#39;bottomleft&#39;</span>, <span class="at">ylim=</span><span class="fu">c</span>(<span class="sc">-</span>.<span class="dv">3</span>,.<span class="dv">3</span>))</span>
+<span id="cb75-14"><a href="#cb75-14" aria-hidden="true" tabindex="-1"></a><span class="fu">title</span>(<span class="st">&#39;evergreen&#39;</span>)</span>
+<span id="cb75-15"><a href="#cb75-15" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb75-16"><a href="#cb75-16" aria-hidden="true" tabindex="-1"></a><span class="fu">gjamIIEplot</span>(fit2, <span class="at">response =</span> <span class="st">&#39;leafbroaddeciduous&#39;</span>, </span>
+<span id="cb75-17"><a href="#cb75-17" aria-hidden="true" tabindex="-1"></a>            <span class="at">effectMu =</span> <span class="fu">c</span>(<span class="st">&#39;main&#39;</span>,<span class="st">&#39;int&#39;</span>), <span class="at">effectSd =</span> <span class="fu">c</span>(<span class="st">&#39;main&#39;</span>,<span class="st">&#39;int&#39;</span>), </span>
+<span id="cb75-18"><a href="#cb75-18" aria-hidden="true" tabindex="-1"></a>            <span class="at">legLoc =</span> <span class="st">&#39;bottomleft&#39;</span>, <span class="at">ylim=</span><span class="fu">c</span>(<span class="sc">-</span>.<span class="dv">3</span>,.<span class="dv">3</span>))</span>
+<span id="cb75-19"><a href="#cb75-19" aria-hidden="true" tabindex="-1"></a><span class="fu">gjamIIEplot</span>(fit2, <span class="at">response =</span> <span class="st">&#39;leafneedleevergreen&#39;</span>, </span>
+<span id="cb75-20"><a href="#cb75-20" aria-hidden="true" tabindex="-1"></a>            <span class="at">effectMu =</span> <span class="fu">c</span>(<span class="st">&#39;main&#39;</span>,<span class="st">&#39;int&#39;</span>), <span class="at">effectSd =</span> <span class="fu">c</span>(<span class="st">&#39;main&#39;</span>,<span class="st">&#39;int&#39;</span>), </span>
+<span id="cb75-21"><a href="#cb75-21" aria-hidden="true" tabindex="-1"></a>            <span class="at">legLoc =</span> <span class="st">&#39;bottomleft&#39;</span>, <span class="at">ylim=</span><span class="fu">c</span>(<span class="sc">-</span>.<span class="dv">3</span>,.<span class="dv">3</span>))</span></code></pre></div>
 <p>The main effects plotted in the graphs do not depend on the values in <code>xvector</code>. Although this observation is taken from the <code>reference</code> soil, the plot shows the main effects that would be obtained if it were on the different soils included in the model. The interactions show how the effect of each predictor is modified by interactions with other variables. Again, the interactions from each predictor do not depend on values for the predictor itself, but rather on the other variables with which it interacts. For example, the interaction effect of <code>soilUltKan</code> on the <code>broaddeciduous</code> trait is positive on dry sites in dry climates (top left). Combined with a negative main effect, this means that deciduous trees tend to be more abundance on moist sites in this soil type. Its main effect on <code>leafneedleevergreen</code> is positive, but less so on moist sites in dry climates (bottom right).</p>
 <p>The indirect effects come from the effects of responses. This example shows indirect effects for foliar N and P that come through <code>broaddeciduous</code> leaf habit:</p>
-<div class="sourceCode" id="cb75"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb75-1"><a href="#cb75-1" aria-hidden="true" tabindex="-1"></a>xvector <span class="ot">&lt;-</span> out<span class="sc">$</span>inputs<span class="sc">$</span>xUnstand[<span class="dv">1</span>,]</span>
-<span id="cb75-2"><a href="#cb75-2" aria-hidden="true" tabindex="-1"></a><span class="fu">par</span>(<span class="at">mfrow=</span><span class="fu">c</span>(<span class="dv">2</span>,<span class="dv">1</span>), <span class="at">bty=</span><span class="st">&#39;n&#39;</span>, <span class="at">mar=</span><span class="fu">c</span>(<span class="dv">1</span>,<span class="dv">1</span>,<span class="dv">1</span>,<span class="dv">1</span>), <span class="at">oma =</span> <span class="fu">c</span>(<span class="dv">0</span>,<span class="dv">0</span>,<span class="dv">0</span>,<span class="dv">0</span>), </span>
-<span id="cb75-3"><a href="#cb75-3" aria-hidden="true" tabindex="-1"></a>    <span class="at">mar =</span> <span class="fu">c</span>(<span class="dv">3</span>,<span class="dv">2</span>,<span class="dv">2</span>,<span class="dv">1</span>), <span class="at">tcl =</span> <span class="sc">-</span><span class="fl">0.5</span>, <span class="at">mgp =</span> <span class="fu">c</span>(<span class="dv">3</span>,<span class="dv">1</span>,<span class="dv">0</span>), <span class="at">family=</span><span class="st">&#39;&#39;</span>)</span>
-<span id="cb75-4"><a href="#cb75-4" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb75-5"><a href="#cb75-5" aria-hidden="true" tabindex="-1"></a>omitY <span class="ot">&lt;-</span> <span class="fu">colnames</span>(u)[<span class="fu">colnames</span>(u) <span class="sc">!=</span> <span class="st">&#39;leafbroaddeciduous&#39;</span>] <span class="co"># omit all but deciduous</span></span>
-<span id="cb75-6"><a href="#cb75-6" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb75-7"><a href="#cb75-7" aria-hidden="true" tabindex="-1"></a>fit <span class="ot">&lt;-</span> <span class="fu">gjamIIE</span>(out, xvector)</span>
-<span id="cb75-8"><a href="#cb75-8" aria-hidden="true" tabindex="-1"></a><span class="fu">gjamIIEplot</span>(fit, <span class="at">response =</span> <span class="st">&#39;leafP&#39;</span>, <span class="at">effectMu =</span> <span class="fu">c</span>(<span class="st">&#39;main&#39;</span>,<span class="st">&#39;ind&#39;</span>), </span>
-<span id="cb75-9"><a href="#cb75-9" aria-hidden="true" tabindex="-1"></a>            <span class="at">effectSd =</span> <span class="fu">c</span>(<span class="st">&#39;main&#39;</span>,<span class="st">&#39;ind&#39;</span>), <span class="at">legLoc =</span> <span class="st">&#39;topright&#39;</span>, <span class="at">ylim=</span><span class="fu">c</span>(<span class="sc">-</span>.<span class="dv">6</span>,.<span class="dv">6</span>))</span>
-<span id="cb75-10"><a href="#cb75-10" aria-hidden="true" tabindex="-1"></a><span class="fu">title</span>(<span class="st">&#39;foliar P&#39;</span>)</span>
-<span id="cb75-11"><a href="#cb75-11" aria-hidden="true" tabindex="-1"></a><span class="fu">gjamIIEplot</span>(fit, <span class="at">response =</span> <span class="st">&#39;leafN&#39;</span>, <span class="at">effectMu =</span> <span class="fu">c</span>(<span class="st">&#39;main&#39;</span>,<span class="st">&#39;ind&#39;</span>), </span>
-<span id="cb75-12"><a href="#cb75-12" aria-hidden="true" tabindex="-1"></a>            <span class="at">effectSd =</span> <span class="fu">c</span>(<span class="st">&#39;main&#39;</span>,<span class="st">&#39;ind&#39;</span>), <span class="at">legLoc =</span> <span class="st">&#39;bottomright&#39;</span>, <span class="at">ylim=</span><span class="fu">c</span>(<span class="sc">-</span>.<span class="dv">6</span>,.<span class="dv">6</span>))</span>
-<span id="cb75-13"><a href="#cb75-13" aria-hidden="true" tabindex="-1"></a><span class="fu">title</span>(<span class="st">&#39;foliar N&#39;</span>)</span></code></pre></div>
+<div class="sourceCode" id="cb76"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb76-1"><a href="#cb76-1" aria-hidden="true" tabindex="-1"></a>xvector <span class="ot">&lt;-</span> out<span class="sc">$</span>inputs<span class="sc">$</span>xUnstand[<span class="dv">1</span>,]</span>
+<span id="cb76-2"><a href="#cb76-2" aria-hidden="true" tabindex="-1"></a><span class="fu">par</span>(<span class="at">mfrow=</span><span class="fu">c</span>(<span class="dv">2</span>,<span class="dv">1</span>), <span class="at">bty=</span><span class="st">&#39;n&#39;</span>, <span class="at">mar=</span><span class="fu">c</span>(<span class="dv">1</span>,<span class="dv">1</span>,<span class="dv">1</span>,<span class="dv">1</span>), <span class="at">oma =</span> <span class="fu">c</span>(<span class="dv">0</span>,<span class="dv">0</span>,<span class="dv">0</span>,<span class="dv">0</span>), </span>
+<span id="cb76-3"><a href="#cb76-3" aria-hidden="true" tabindex="-1"></a>    <span class="at">mar =</span> <span class="fu">c</span>(<span class="dv">3</span>,<span class="dv">2</span>,<span class="dv">2</span>,<span class="dv">1</span>), <span class="at">tcl =</span> <span class="sc">-</span><span class="fl">0.5</span>, <span class="at">mgp =</span> <span class="fu">c</span>(<span class="dv">3</span>,<span class="dv">1</span>,<span class="dv">0</span>), <span class="at">family=</span><span class="st">&#39;&#39;</span>)</span>
+<span id="cb76-4"><a href="#cb76-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb76-5"><a href="#cb76-5" aria-hidden="true" tabindex="-1"></a>omitY <span class="ot">&lt;-</span> <span class="fu">colnames</span>(u)[<span class="fu">colnames</span>(u) <span class="sc">!=</span> <span class="st">&#39;leafbroaddeciduous&#39;</span>] <span class="co"># omit all but deciduous</span></span>
+<span id="cb76-6"><a href="#cb76-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb76-7"><a href="#cb76-7" aria-hidden="true" tabindex="-1"></a>fit <span class="ot">&lt;-</span> <span class="fu">gjamIIE</span>(out, xvector)</span>
+<span id="cb76-8"><a href="#cb76-8" aria-hidden="true" tabindex="-1"></a><span class="fu">gjamIIEplot</span>(fit, <span class="at">response =</span> <span class="st">&#39;leafP&#39;</span>, <span class="at">effectMu =</span> <span class="fu">c</span>(<span class="st">&#39;main&#39;</span>,<span class="st">&#39;ind&#39;</span>), </span>
+<span id="cb76-9"><a href="#cb76-9" aria-hidden="true" tabindex="-1"></a>            <span class="at">effectSd =</span> <span class="fu">c</span>(<span class="st">&#39;main&#39;</span>,<span class="st">&#39;ind&#39;</span>), <span class="at">legLoc =</span> <span class="st">&#39;topright&#39;</span>, <span class="at">ylim=</span><span class="fu">c</span>(<span class="sc">-</span>.<span class="dv">6</span>,.<span class="dv">6</span>))</span>
+<span id="cb76-10"><a href="#cb76-10" aria-hidden="true" tabindex="-1"></a><span class="fu">title</span>(<span class="st">&#39;foliar P&#39;</span>)</span>
+<span id="cb76-11"><a href="#cb76-11" aria-hidden="true" tabindex="-1"></a><span class="fu">gjamIIEplot</span>(fit, <span class="at">response =</span> <span class="st">&#39;leafN&#39;</span>, <span class="at">effectMu =</span> <span class="fu">c</span>(<span class="st">&#39;main&#39;</span>,<span class="st">&#39;ind&#39;</span>), </span>
+<span id="cb76-12"><a href="#cb76-12" aria-hidden="true" tabindex="-1"></a>            <span class="at">effectSd =</span> <span class="fu">c</span>(<span class="st">&#39;main&#39;</span>,<span class="st">&#39;ind&#39;</span>), <span class="at">legLoc =</span> <span class="st">&#39;bottomright&#39;</span>, <span class="at">ylim=</span><span class="fu">c</span>(<span class="sc">-</span>.<span class="dv">6</span>,.<span class="dv">6</span>))</span>
+<span id="cb76-13"><a href="#cb76-13" aria-hidden="true" tabindex="-1"></a><span class="fu">title</span>(<span class="st">&#39;foliar N&#39;</span>)</span></code></pre></div>
 <p>There will always be indirect effects, because they come through the covariance matrix.</p>
 </div>
 </div>
@@ -1627,48 +1657,48 @@ The matrices <code>out$parameters$cutMu</code> and <code>out$parameters$cutSe</c
 <p><strong>The predictive trait model</strong> fits species data and predicts traits using the species-by-trait matrix <strong>T</strong>, contained in the object <code>specbyTrait</code>.</p>
 <p><br></p>
 <p>The PTM begins by fitting <code>pbys</code>, followed by predicting <code>plotByTraits</code>. This requires a <code>traitList</code>, which defines the objects needed for prediction. The species are weights, so they should be modeled as composition data, eight <code>&#39;FC&#39;</code> (rows sum to 1) or <code>&#39;CC&#39;</code>. Here the model is fitted with dimension reduction:</p>
-<div class="sourceCode" id="cb76"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb76-1"><a href="#cb76-1" aria-hidden="true" tabindex="-1"></a>tl  <span class="ot">&lt;-</span> <span class="fu">list</span>(<span class="at">plotByTrait =</span> u, <span class="at">traitTypes =</span> tTypes, <span class="at">specByTrait =</span> specByTrait)</span>
-<span id="cb76-2"><a href="#cb76-2" aria-hidden="true" tabindex="-1"></a>rl  <span class="ot">&lt;-</span> <span class="fu">list</span>(<span class="at">r =</span> <span class="dv">8</span>, <span class="at">N =</span> <span class="dv">25</span>)</span>
-<span id="cb76-3"><a href="#cb76-3" aria-hidden="true" tabindex="-1"></a>ml  <span class="ot">&lt;-</span> <span class="fu">list</span>(<span class="at">ng =</span> <span class="dv">2000</span>, <span class="at">burnin =</span> <span class="dv">500</span>, <span class="at">typeNames =</span> <span class="st">&#39;CC&#39;</span>, <span class="at">holdoutN =</span> <span class="dv">20</span>,</span>
-<span id="cb76-4"><a href="#cb76-4" aria-hidden="true" tabindex="-1"></a>                  <span class="at">traitList =</span> tl, <span class="at">reductList =</span> rl)</span>
-<span id="cb76-5"><a href="#cb76-5" aria-hidden="true" tabindex="-1"></a>out <span class="ot">&lt;-</span> <span class="fu">gjam</span>(<span class="sc">~</span> temp <span class="sc">+</span> stdage <span class="sc">+</span> deficit<span class="sc">*</span>soil, <span class="at">xdata =</span> xdata, </span>
-<span id="cb76-6"><a href="#cb76-6" aria-hidden="true" tabindex="-1"></a>                     <span class="at">ydata =</span> pbys, <span class="at">modelList =</span> ml)</span>
-<span id="cb76-7"><a href="#cb76-7" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb76-8"><a href="#cb76-8" aria-hidden="true" tabindex="-1"></a>S  <span class="ot">&lt;-</span> <span class="fu">nrow</span>(specByTrait)</span>
-<span id="cb76-9"><a href="#cb76-9" aria-hidden="true" tabindex="-1"></a>sc <span class="ot">&lt;-</span> <span class="fu">rep</span>(<span class="st">&#39;black&#39;</span>, S)</span>
-<span id="cb76-10"><a href="#cb76-10" aria-hidden="true" tabindex="-1"></a>wr <span class="ot">&lt;-</span> <span class="fu">which</span>(specByTrait[,<span class="st">&#39;ring&#39;</span>] <span class="sc">==</span> <span class="dv">1</span>)                  <span class="co"># ring porous</span></span>
-<span id="cb76-11"><a href="#cb76-11" aria-hidden="true" tabindex="-1"></a>wb <span class="ot">&lt;-</span> <span class="fu">which</span>(specByTrait[,<span class="st">&#39;leafneedleevergreen&#39;</span>] <span class="sc">==</span> <span class="dv">1</span>)   <span class="co"># needle-leaf evergreen</span></span>
-<span id="cb76-12"><a href="#cb76-12" aria-hidden="true" tabindex="-1"></a>wd <span class="ot">&lt;-</span> <span class="fu">which</span>(specByTrait[,<span class="st">&#39;leafneedledeciduous&#39;</span>] <span class="sc">==</span> <span class="dv">1</span>)   <span class="co"># needle-leaf deciduous</span></span>
-<span id="cb76-13"><a href="#cb76-13" aria-hidden="true" tabindex="-1"></a>ws <span class="ot">&lt;-</span> <span class="fu">which</span>(specByTrait[,<span class="st">&#39;shade&#39;</span>] <span class="sc">&gt;=</span> <span class="dv">4</span>)                 <span class="co"># shade tolerant</span></span>
-<span id="cb76-14"><a href="#cb76-14" aria-hidden="true" tabindex="-1"></a>sc[wr] <span class="ot">&lt;-</span> <span class="st">&#39;#8c510a&#39;</span></span>
-<span id="cb76-15"><a href="#cb76-15" aria-hidden="true" tabindex="-1"></a>sc[ws] <span class="ot">&lt;-</span> <span class="st">&#39;#3288bd&#39;</span></span>
-<span id="cb76-16"><a href="#cb76-16" aria-hidden="true" tabindex="-1"></a>sc[wb] <span class="ot">&lt;-</span> <span class="st">&#39;#003c30&#39;</span></span>
-<span id="cb76-17"><a href="#cb76-17" aria-hidden="true" tabindex="-1"></a>sc[wd] <span class="ot">&lt;-</span> <span class="st">&#39;#80cdc1&#39;</span></span>
-<span id="cb76-18"><a href="#cb76-18" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb76-19"><a href="#cb76-19" aria-hidden="true" tabindex="-1"></a>M  <span class="ot">&lt;-</span> <span class="fu">ncol</span>(specByTrait)</span>
-<span id="cb76-20"><a href="#cb76-20" aria-hidden="true" tabindex="-1"></a>tc <span class="ot">&lt;-</span> <span class="fu">rep</span>(<span class="st">&#39;black&#39;</span>, M)</span>
-<span id="cb76-21"><a href="#cb76-21" aria-hidden="true" tabindex="-1"></a><span class="fu">names</span>(tc) <span class="ot">&lt;-</span> <span class="fu">colnames</span>(specByTrait)</span>
-<span id="cb76-22"><a href="#cb76-22" aria-hidden="true" tabindex="-1"></a>tc[ <span class="st">&#39;ring&#39;</span> ] <span class="ot">&lt;-</span> <span class="st">&#39;#8c510a&#39;</span></span>
-<span id="cb76-23"><a href="#cb76-23" aria-hidden="true" tabindex="-1"></a>tc[ <span class="st">&#39;leafneedleevergreen&#39;</span> ] <span class="ot">&lt;-</span> <span class="st">&#39;#3288bd&#39;</span></span>
-<span id="cb76-24"><a href="#cb76-24" aria-hidden="true" tabindex="-1"></a>tc[ <span class="st">&#39;leafneedledeciduous&#39;</span> ] <span class="ot">&lt;-</span> <span class="st">&#39;#003c30&#39;</span></span>
-<span id="cb76-25"><a href="#cb76-25" aria-hidden="true" tabindex="-1"></a>tc[ <span class="st">&#39;shade&#39;</span> ] <span class="ot">&lt;-</span> <span class="st">&#39;#80cdc1&#39;</span></span>
-<span id="cb76-26"><a href="#cb76-26" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb76-27"><a href="#cb76-27" aria-hidden="true" tabindex="-1"></a>ncluster <span class="ot">&lt;-</span> <span class="dv">5</span></span>
-<span id="cb76-28"><a href="#cb76-28" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb76-29"><a href="#cb76-29" aria-hidden="true" tabindex="-1"></a><span class="fu">par</span>(<span class="at">family =</span> <span class="st">&#39;&#39;</span>)</span>
-<span id="cb76-30"><a href="#cb76-30" aria-hidden="true" tabindex="-1"></a>pl  <span class="ot">&lt;-</span> <span class="fu">list</span>(<span class="at">width=</span><span class="dv">4</span>, <span class="at">height=</span><span class="dv">4</span>, <span class="at">CORLINES=</span>F, <span class="at">GRIDPLOTS=</span>T,</span>
-<span id="cb76-31"><a href="#cb76-31" aria-hidden="true" tabindex="-1"></a>                  <span class="at">specColor =</span> sc, <span class="at">traitColor =</span> tc, <span class="at">ncluster =</span> ncluster) </span>
-<span id="cb76-32"><a href="#cb76-32" aria-hidden="true" tabindex="-1"></a>fit <span class="ot">&lt;-</span> <span class="fu">gjamPlot</span>(<span class="at">output =</span> out, pl)</span></code></pre></div>
+<div class="sourceCode" id="cb77"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb77-1"><a href="#cb77-1" aria-hidden="true" tabindex="-1"></a>tl  <span class="ot">&lt;-</span> <span class="fu">list</span>(<span class="at">plotByTrait =</span> u, <span class="at">traitTypes =</span> tTypes, <span class="at">specByTrait =</span> specByTrait)</span>
+<span id="cb77-2"><a href="#cb77-2" aria-hidden="true" tabindex="-1"></a>rl  <span class="ot">&lt;-</span> <span class="fu">list</span>(<span class="at">r =</span> <span class="dv">8</span>, <span class="at">N =</span> <span class="dv">25</span>)</span>
+<span id="cb77-3"><a href="#cb77-3" aria-hidden="true" tabindex="-1"></a>ml  <span class="ot">&lt;-</span> <span class="fu">list</span>(<span class="at">ng =</span> <span class="dv">2000</span>, <span class="at">burnin =</span> <span class="dv">500</span>, <span class="at">typeNames =</span> <span class="st">&#39;CC&#39;</span>, <span class="at">holdoutN =</span> <span class="dv">20</span>,</span>
+<span id="cb77-4"><a href="#cb77-4" aria-hidden="true" tabindex="-1"></a>                  <span class="at">traitList =</span> tl, <span class="at">reductList =</span> rl)</span>
+<span id="cb77-5"><a href="#cb77-5" aria-hidden="true" tabindex="-1"></a>out <span class="ot">&lt;-</span> <span class="fu">gjam</span>(<span class="sc">~</span> temp <span class="sc">+</span> stdage <span class="sc">+</span> deficit<span class="sc">*</span>soil, <span class="at">xdata =</span> xdata, </span>
+<span id="cb77-6"><a href="#cb77-6" aria-hidden="true" tabindex="-1"></a>                     <span class="at">ydata =</span> pbys, <span class="at">modelList =</span> ml)</span>
+<span id="cb77-7"><a href="#cb77-7" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb77-8"><a href="#cb77-8" aria-hidden="true" tabindex="-1"></a>S  <span class="ot">&lt;-</span> <span class="fu">nrow</span>(specByTrait)</span>
+<span id="cb77-9"><a href="#cb77-9" aria-hidden="true" tabindex="-1"></a>sc <span class="ot">&lt;-</span> <span class="fu">rep</span>(<span class="st">&#39;black&#39;</span>, S)</span>
+<span id="cb77-10"><a href="#cb77-10" aria-hidden="true" tabindex="-1"></a>wr <span class="ot">&lt;-</span> <span class="fu">which</span>(specByTrait[,<span class="st">&#39;ring&#39;</span>] <span class="sc">==</span> <span class="dv">1</span>)                  <span class="co"># ring porous</span></span>
+<span id="cb77-11"><a href="#cb77-11" aria-hidden="true" tabindex="-1"></a>wb <span class="ot">&lt;-</span> <span class="fu">which</span>(specByTrait[,<span class="st">&#39;leafneedleevergreen&#39;</span>] <span class="sc">==</span> <span class="dv">1</span>)   <span class="co"># needle-leaf evergreen</span></span>
+<span id="cb77-12"><a href="#cb77-12" aria-hidden="true" tabindex="-1"></a>wd <span class="ot">&lt;-</span> <span class="fu">which</span>(specByTrait[,<span class="st">&#39;leafneedledeciduous&#39;</span>] <span class="sc">==</span> <span class="dv">1</span>)   <span class="co"># needle-leaf deciduous</span></span>
+<span id="cb77-13"><a href="#cb77-13" aria-hidden="true" tabindex="-1"></a>ws <span class="ot">&lt;-</span> <span class="fu">which</span>(specByTrait[,<span class="st">&#39;shade&#39;</span>] <span class="sc">&gt;=</span> <span class="dv">4</span>)                 <span class="co"># shade tolerant</span></span>
+<span id="cb77-14"><a href="#cb77-14" aria-hidden="true" tabindex="-1"></a>sc[wr] <span class="ot">&lt;-</span> <span class="st">&#39;#8c510a&#39;</span></span>
+<span id="cb77-15"><a href="#cb77-15" aria-hidden="true" tabindex="-1"></a>sc[ws] <span class="ot">&lt;-</span> <span class="st">&#39;#3288bd&#39;</span></span>
+<span id="cb77-16"><a href="#cb77-16" aria-hidden="true" tabindex="-1"></a>sc[wb] <span class="ot">&lt;-</span> <span class="st">&#39;#003c30&#39;</span></span>
+<span id="cb77-17"><a href="#cb77-17" aria-hidden="true" tabindex="-1"></a>sc[wd] <span class="ot">&lt;-</span> <span class="st">&#39;#80cdc1&#39;</span></span>
+<span id="cb77-18"><a href="#cb77-18" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb77-19"><a href="#cb77-19" aria-hidden="true" tabindex="-1"></a>M  <span class="ot">&lt;-</span> <span class="fu">ncol</span>(specByTrait)</span>
+<span id="cb77-20"><a href="#cb77-20" aria-hidden="true" tabindex="-1"></a>tc <span class="ot">&lt;-</span> <span class="fu">rep</span>(<span class="st">&#39;black&#39;</span>, M)</span>
+<span id="cb77-21"><a href="#cb77-21" aria-hidden="true" tabindex="-1"></a><span class="fu">names</span>(tc) <span class="ot">&lt;-</span> <span class="fu">colnames</span>(specByTrait)</span>
+<span id="cb77-22"><a href="#cb77-22" aria-hidden="true" tabindex="-1"></a>tc[ <span class="st">&#39;ring&#39;</span> ] <span class="ot">&lt;-</span> <span class="st">&#39;#8c510a&#39;</span></span>
+<span id="cb77-23"><a href="#cb77-23" aria-hidden="true" tabindex="-1"></a>tc[ <span class="st">&#39;leafneedleevergreen&#39;</span> ] <span class="ot">&lt;-</span> <span class="st">&#39;#3288bd&#39;</span></span>
+<span id="cb77-24"><a href="#cb77-24" aria-hidden="true" tabindex="-1"></a>tc[ <span class="st">&#39;leafneedledeciduous&#39;</span> ] <span class="ot">&lt;-</span> <span class="st">&#39;#003c30&#39;</span></span>
+<span id="cb77-25"><a href="#cb77-25" aria-hidden="true" tabindex="-1"></a>tc[ <span class="st">&#39;shade&#39;</span> ] <span class="ot">&lt;-</span> <span class="st">&#39;#80cdc1&#39;</span></span>
+<span id="cb77-26"><a href="#cb77-26" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb77-27"><a href="#cb77-27" aria-hidden="true" tabindex="-1"></a>ncluster <span class="ot">&lt;-</span> <span class="dv">5</span></span>
+<span id="cb77-28"><a href="#cb77-28" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb77-29"><a href="#cb77-29" aria-hidden="true" tabindex="-1"></a><span class="fu">par</span>(<span class="at">family =</span> <span class="st">&#39;&#39;</span>)</span>
+<span id="cb77-30"><a href="#cb77-30" aria-hidden="true" tabindex="-1"></a>pl  <span class="ot">&lt;-</span> <span class="fu">list</span>(<span class="at">width=</span><span class="dv">4</span>, <span class="at">height=</span><span class="dv">4</span>, <span class="at">CORLINES=</span>F, <span class="at">GRIDPLOTS=</span>T,</span>
+<span id="cb77-31"><a href="#cb77-31" aria-hidden="true" tabindex="-1"></a>                  <span class="at">specColor =</span> sc, <span class="at">traitColor =</span> tc, <span class="at">ncluster =</span> ncluster) </span>
+<span id="cb77-32"><a href="#cb77-32" aria-hidden="true" tabindex="-1"></a>fit <span class="ot">&lt;-</span> <span class="fu">gjamPlot</span>(<span class="at">output =</span> out, pl)</span></code></pre></div>
 <p>Output is interpreted as previously, now with coefficients <span class="math inline">\(\mathbf{B}\)</span> and covariance <span class="math inline">\(\boldsymbol{\Sigma}\)</span>. gjamPlot generates an additional plot with trait predictions. Parameter values are here:</p>
-<div class="sourceCode" id="cb77"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb77-1"><a href="#cb77-1" aria-hidden="true" tabindex="-1"></a>out<span class="sc">$</span>parameters<span class="sc">$</span>betaTraitXMu     <span class="co"># Q by M coefficient matrix alpha, standardized for X</span></span>
-<span id="cb77-2"><a href="#cb77-2" aria-hidden="true" tabindex="-1"></a>out<span class="sc">$</span>parameters<span class="sc">$</span>betaTraitXWmu    <span class="co"># Q by M standardized for X/W</span></span>
-<span id="cb77-3"><a href="#cb77-3" aria-hidden="true" tabindex="-1"></a>out<span class="sc">$</span>parameters<span class="sc">$</span>betaTraitXTable  <span class="co"># QM by stats posterior summary</span></span>
-<span id="cb77-4"><a href="#cb77-4" aria-hidden="true" tabindex="-1"></a>out<span class="sc">$</span>parameters<span class="sc">$</span>betaTraitXWTable <span class="co"># QM by stats summary for X/W</span></span>
-<span id="cb77-5"><a href="#cb77-5" aria-hidden="true" tabindex="-1"></a>out<span class="sc">$</span>parameters<span class="sc">$</span>varTraitMu       <span class="co"># M by M trait residual covariance, standardized for X</span></span>
-<span id="cb77-6"><a href="#cb77-6" aria-hidden="true" tabindex="-1"></a>out<span class="sc">$</span>parameters<span class="sc">$</span>varTraitTable    <span class="co"># M^2 by stats summary, standardized for X/W</span></span></code></pre></div>
+<div class="sourceCode" id="cb78"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb78-1"><a href="#cb78-1" aria-hidden="true" tabindex="-1"></a>out<span class="sc">$</span>parameters<span class="sc">$</span>betaTraitXMu     <span class="co"># Q by M coefficient matrix alpha, standardized for X</span></span>
+<span id="cb78-2"><a href="#cb78-2" aria-hidden="true" tabindex="-1"></a>out<span class="sc">$</span>parameters<span class="sc">$</span>betaTraitXWmu    <span class="co"># Q by M standardized for X/W</span></span>
+<span id="cb78-3"><a href="#cb78-3" aria-hidden="true" tabindex="-1"></a>out<span class="sc">$</span>parameters<span class="sc">$</span>betaTraitXTable  <span class="co"># QM by stats posterior summary</span></span>
+<span id="cb78-4"><a href="#cb78-4" aria-hidden="true" tabindex="-1"></a>out<span class="sc">$</span>parameters<span class="sc">$</span>betaTraitXWTable <span class="co"># QM by stats summary for X/W</span></span>
+<span id="cb78-5"><a href="#cb78-5" aria-hidden="true" tabindex="-1"></a>out<span class="sc">$</span>parameters<span class="sc">$</span>varTraitMu       <span class="co"># M by M trait residual covariance, standardized for X</span></span>
+<span id="cb78-6"><a href="#cb78-6" aria-hidden="true" tabindex="-1"></a>out<span class="sc">$</span>parameters<span class="sc">$</span>varTraitTable    <span class="co"># M^2 by stats summary, standardized for X/W</span></span></code></pre></div>
 <p>Trait predictive distributions are summarized here:</p>
-<div class="sourceCode" id="cb78"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb78-1"><a href="#cb78-1" aria-hidden="true" tabindex="-1"></a>out<span class="sc">$</span>prediction<span class="sc">$</span>tMu[<span class="dv">1</span><span class="sc">:</span><span class="dv">5</span>,]     <span class="co"># n by M predictive means</span></span>
-<span id="cb78-2"><a href="#cb78-2" aria-hidden="true" tabindex="-1"></a>out<span class="sc">$</span>prediction<span class="sc">$</span>tSe[<span class="dv">1</span><span class="sc">:</span><span class="dv">5</span>,]     <span class="co"># n by M predictive std errors</span></span></code></pre></div>
+<div class="sourceCode" id="cb79"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb79-1"><a href="#cb79-1" aria-hidden="true" tabindex="-1"></a>out<span class="sc">$</span>prediction<span class="sc">$</span>tMu[<span class="dv">1</span><span class="sc">:</span><span class="dv">5</span>,]     <span class="co"># n by M predictive means</span></span>
+<span id="cb79-2"><a href="#cb79-2" aria-hidden="true" tabindex="-1"></a>out<span class="sc">$</span>prediction<span class="sc">$</span>tSe[<span class="dv">1</span><span class="sc">:</span><span class="dv">5</span>,]     <span class="co"># n by M predictive std errors</span></span></code></pre></div>
 <p>Additional quantities can be predicted from the output using the MCMC output in the list <code>out$chains</code>.</p>
 <p>It is worth checking for combinations of responses and factor levels that might be missing from the data. That is an issue here, because each species has a limited geographic distribution, as do the soil types. The object <code>out$inputs$factorBeta$missFacSpec</code> lists the missing predictor-response combinations. This list could be the basis for consolidating factor levels.</p>
 </div>
@@ -1748,9 +1778,9 @@ The matrices <code>out$parameters$cutMu</code> and <code>out$parameters$cutSe</c
 <p>A joint model for data sets with many response variables can be unstable for several reasons. Because the model can accommodate large, multivariate data sets, there is temptation to throw everything in and see what happens. gjam is vulnerable due to the fact that columns in <code>ydata</code> have different scales and, thus, can range over orders of magnitude. It’s best to start small, gain a feel for the data and how it translates to estimates of many coefficients and covariances. More species and predictors can be added without changing the model. The opposite approach of throwing in everything is asking for trouble and is unlikely to generate insight.</p>
 <p>If a model won’t execute, start by simplifying it. Use a small number of predictors and response variables. It’s easy to add complexity later. If execution fails there are several options.</p>
 <p><strong>Check <span class="math inline">\(\mathbf{X}\)</span> and <span class="math inline">\(\mathbf{Y}\)</span></strong>. Most errors come from the data. If there are many species (large <span class="math inline">\(\mathbf{Y}\)</span>), some may occur once or not at all. This is easy to check with the function <code>gjamTrimY</code>. If I suspect trouble with the design matrix <span class="math inline">\(\mathbf{X}\)</span>, I can make sure it is full rank, e.g.,</p>
-<div class="sourceCode" id="cb79"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb79-1"><a href="#cb79-1" aria-hidden="true" tabindex="-1"></a>f <span class="ot">&lt;-</span> <span class="fu">gjamSimData</span>(<span class="at">S =</span> <span class="dv">5</span>, <span class="at">typeNames =</span> <span class="st">&#39;CA&#39;</span>)</span>
-<span id="cb79-2"><a href="#cb79-2" aria-hidden="true" tabindex="-1"></a>x <span class="ot">&lt;-</span> <span class="fu">model.matrix</span>(f<span class="sc">$</span>formula, f<span class="sc">$</span>xdata)</span>
-<span id="cb79-3"><a href="#cb79-3" aria-hidden="true" tabindex="-1"></a><span class="fu">qr</span>(x)<span class="sc">$</span>rank</span></code></pre></div>
+<div class="sourceCode" id="cb80"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb80-1"><a href="#cb80-1" aria-hidden="true" tabindex="-1"></a>f <span class="ot">&lt;-</span> <span class="fu">gjamSimData</span>(<span class="at">S =</span> <span class="dv">5</span>, <span class="at">typeNames =</span> <span class="st">&#39;CA&#39;</span>)</span>
+<span id="cb80-2"><a href="#cb80-2" aria-hidden="true" tabindex="-1"></a>x <span class="ot">&lt;-</span> <span class="fu">model.matrix</span>(f<span class="sc">$</span>formula, f<span class="sc">$</span>xdata)</span>
+<span id="cb80-3"><a href="#cb80-3" aria-hidden="true" tabindex="-1"></a><span class="fu">qr</span>(x)<span class="sc">$</span>rank</span></code></pre></div>
 <p>The rank must equal the number of columns in <code>x</code>.</p>
 <p><strong>If I am simulating data</strong>, first try it again. The simulator aims to generate data that will actually work, more challenging than would be the case for a univariate simulation of a single data type. Simulated data are random, so try again.</p>
 <p><strong>If the fit is bad</strong>, it could be noisy data (there is no ‘signal’), but there are other things to check. Again, insure that all columns in <code>ydata</code> include at least some non-zero values. One would not expect a univariate model to fit a data set where the response is all zeros. However, when there are many columns in <code>ydata</code>, the fact that some are never or rarely observed can be overlooked. The functions <code>hist</code>, <code>colSums</code>, and, for discrete data, <code>table</code>, can be used. The function <code>gjamTrimY(ydata, m)</code> can be used to limit <code>ydata</code> to only those columns with at least <code>m</code> non-zero observations.</p>

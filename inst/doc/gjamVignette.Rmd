@@ -12,7 +12,7 @@ vignette: >
   %\VignetteEncoding{UTF-8}
 ---
 
-**version 2.5.1**
+**version 2.5.2**
 
 
 ```{r outform, echo=F}
@@ -1235,6 +1235,49 @@ legend( 'topleft', c('Unconditional', 'Conditional on half of species'),
 ```
 
 Again, the conditional prediction can differ from the unconditional one, due to the covariances between species.
+
+
+## <span style="color:teal">conditional parameters</span>
+
+The parameters used for conditional prediction can be obtained with the function `gjamConditionalParameters`. The coeffficients come from a partition of the response vector as $\mathbf{w}' = [\mathbf{u}, \mathbf{v}]$ with coefficient and covariance matrices
+
+$$
+\mathbf{B} = 
+\begin{bmatrix}
+\mathbf{B}_u \\
+\mathbf{B}_v \\
+\end{bmatrix}, 
+\Sigma =
+\begin{bmatrix}
+\Sigma_{uu} & \Sigma_{uv} \\
+\Sigma_{vu} & \Sigma_{vv} \\
+\end{bmatrix}
+$$
+
+
+Write the conditional distribution for responses in $\mathbf{u}$ conditioned on values set for the others in $\mathbf{v}$,
+
+$$
+\begin{aligned}
+\mathbf{u}|\mathbf{v} &\sim MVN \left( \mathbf{C}\mathbf{x} + \mathbf{A}\mathbf{v}, \mathbf{P} \right) \\
+\mathbf{A} &= \Sigma_{uv} \Sigma^{-1}_{vv} \\
+\mathbf{C} &= \mathbf{B}_u - \mathbf{A}\mathbf{B}_v \\
+\mathbf{P} &= \Sigma_{uu} - \mathbf{A}\Sigma_{vu}
+\end{aligned}
+$$
+`gjamConditionalParameters` takes the fitted `gjam` object and returns these three matrices, each as a matrix of posterior means and standard errors and as a table with 95\% credible intervals. The `vector conditionOn` holds the column names in `ydata` for the variables that I want to condition on, i.e., in the subvector $\mathbf{v}$,
+
+```{r, eval = F}
+conditionalParameters( output, conditionOn = c('S1','S4') )
+```
+
+Matrix $\mathbf{A}$ is like a regression matrix on species. It is a $S_u \times S_v$ matrix holding the effects of each response in `conditionOn` ($\mathbf{v}$) on the other columns ($\mathbf{u}$).
+
+Matrix $\mathbf{C}$ are regression coefficients on predictors in $\mathbf{x}$, after extracting the contribution from other species. It is a $S_u \times Q$ matrix.
+
+Matrix $\mathbf{P}$ is the $S_u \times S_u$ conditional covariance.
+
+
 
 ## <span style="color:teal">presence-only data with effort</span>
 
