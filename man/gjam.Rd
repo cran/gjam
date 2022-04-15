@@ -125,7 +125,7 @@ S   <- 5
 n   <- 1000
 eff <- list( columns = 1:S, values = round(runif(n,.5,5),1) )
 f   <- gjamSimData(n, S, typeNames='DA', effort=eff)
-ml  <- list(ng = 500, burnin = 50, typeNames = f$typeNames, effort = eff)
+ml  <- list(ng = 2000, burnin = 500, typeNames = f$typeNames, effort = eff)
 out <- gjam(f$formula, f$xdata, f$ydata, modelList = ml)
 summary(out)
 

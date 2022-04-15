@@ -2,7 +2,7 @@
 \alias{gjamFillMissingTimes}
 \title{Fill out data for time series (state-space) gjam}
 \description{
-  Fills in predictor, response, and effort matrics for time series data where there are multiple multivariate time series.  Time series gjam is still under development.
+  Fills in predictor, response, and effort matrics for time series data where there are multiple multivariate time series.  Time series gjam is here \url{https://htmlpreview.github.io/?https://github.com/jimclarkatduke/gjam/blob/master/gjamTimeMsVignette.html}
 }
 \usage{
   gjamFillMissingTimes(xdata, ydata, edata, groupCol, timeCol, groupVars = groupCol,
@@ -48,7 +48,7 @@ A list containing the following:
 James S Clark, \email{jimclark@duke.edu}
 }
 \references{
-Clark, J.S., D. Nemergut, B. Seyednasrollah, P. Turner, and S. Zhang. 2016.  Generalized joint attribute modeling for biodiversity analysis: Median-zero, multivariate, multifarious data.  Ecological Monographs, 87, 34-56.
+Clark, J. S., C. L. Scher, and M. Swift. 2020. The emergent interactions that govern biodiversity change. Proceedings of the National Academy of Sciences, 117, 17074-17083.
 }
 \seealso{
 \code{\link{gjam}} for more on \code{xdata}, \code{ydata}, and effort.

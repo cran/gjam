@@ -170,7 +170,7 @@ bigskip <- function(){
 #  library(repmis)
 #  d <- "https://github.com/jimclarkatduke/gjam/blob/master/forestTraits.RData?raw=True"
 #  source_data(d)
-#  xdata <- forestTraits$xdata[,c(1,2,8)]
+#  xdata <- forestTraits$xdata[,c(1,2,7,8)]
 
 ## ----setupX, echo=F, eval=T---------------------------------------------------
 temp <- c(1.22,  0.18, -0.94,  0.64,  0.82)
@@ -371,9 +371,9 @@ x[1:5,]
 #  hi <- lo
 #  
 #  # setup prior and fit model
-#  bp <- gjamPriorTemplate(formula, xdata, ydata = treeYdata, lo = lo, hi=hi)
-#  rl <- list(N = 10, r = 5)
-#  ml <- list(ng=1000, burnin=200, typeNames = 'CA', betaPrior = bp, reductList=rl)
+#  bp  <- gjamPriorTemplate(formula, xdata, ydata = treeYdata, lo = lo, hi=hi)
+#  rl  <- list(N = 10, r = 5)
+#  ml  <- list(ng=1000, burnin=200, typeNames = 'CA', betaPrior = bp, reductList=rl)
 #  out <- gjam(formula, xdata, ydata = treeYdata, modelList = ml)
 
 ## ----compData, eval = FALSE---------------------------------------------------
@@ -383,7 +383,7 @@ x[1:5,]
 #  gjamPlot( output = out, plotPars = list( trueValues = f$trueValues) )
 
 ## ----compFC, eval = FALSE-----------------------------------------------------
-#  f   <- gjamSimData( S = 20, typeNames = 'FC' )
+#  f   <- gjamSimData( S = 10, typeNames = 'FC' )
 #  ml  <- list( ng = 2000, burnin = 500, typeNames = f$typeNames )
 #  out <- gjam( f$formula, f$xdata, f$ydata, modelList = ml )
 #  gjamPlot( output = out, plotPars = list( trueValues = f$trueValues ) )
@@ -392,7 +392,6 @@ x[1:5,]
 #  f   <- gjamSimData( typeNames = 'OC' )
 #  ml  <- list( ng = 2000, burnin = 500, typeNames = f$typeNames )
 #  out <- gjam( f$formula, f$xdata, f$ydata, modelList = ml )
-#  print(out)
 
 ## ----ordinal partition, eval = FALSE------------------------------------------
 #  par( mfrow=c(1,1), bty = 'n' )
@@ -630,9 +629,8 @@ cbind(ml,mx)
 
 ## ----effortPredictNew, eval = FALSE-------------------------------------------
 #  cols <- c( '#1b9e77','#d95f02' )
-#  
-#  new <- list( xdata = f$xdata, effort=eff, nsim = 500 ) # effort unchanged
-#  p1  <- gjamPredict( output = out, newdata = new )
+#  new  <- list( xdata = f$xdata, effort=eff, nsim = 500 ) # effort unchanged
+#  p1   <- gjamPredict( output = out, newdata = new )
 #  
 #  plot(f$y[,tn == 'DA'], p1$sdList$yMu[,tn == 'DA'],
 #       xlab = 'Observed', ylab = 'Predicted', cex=.2, col = cols[1] )
@@ -671,14 +669,14 @@ cbind(ml,mx)
 #  d <- "https://github.com/jimclarkatduke/gjam/blob/master/forestTraits.RData?raw=True"
 #  source_data(d)
 #  
-#  xdata <- forestTraits$xdata                          # n X Q
+#  xdata <- forestTraits$xdata                            # n X Q
 #  ydata <- gjamReZero( forestTraits$treesDeZero )        # n X S
 #  ydata <- ydata[,colnames(ydata) != 'other']
-#  ydata <- gjamTrimY( ydata, 10, OTHER=F )$y
+#  ydata <- gjamTrimY( ydata, 200, OTHER=F )$y
 
 ## ----gjamCA, eval=F-----------------------------------------------------------
 #  ml      <- list( ng = 2500, burnin = 1000, typeNames = 'DA',
-#                   reductList = list( N = 15, r = 10), PREDICTX = F )
+#                   PREDICTX = F )
 #  formula <- as.formula(~ temp + deficit*moisture)
 #  output  <- gjam( formula, xdata, ydata, modelList = ml )
 #  
@@ -696,19 +694,19 @@ cbind(ml,mx)
 #  condy   <- tmp$sdList$yMu
 #  
 #  plot(ydata[,-wc], full[,-wc], ylim = c(range(ydata)),
-#       xlab = 'Observed', ylab = 'Predicted', col = cols[1], cex = .1)
+#       xlab = 'Observed', ylab = 'Predicted', col = cols[1], cex = .3)
 #  abline( 0, 1, lty=2 )
-#  points( ydata[,-wc], condy[,-wc], col = cols[2], cex = .1)
+#  points( ydata[,-wc], condy[,-wc], col = cols[2], cex = .3)
 #  legend( 'topleft', c('Unconditional', 'Conditional on half of species'),
 #          text.col = cols[1:2], bty='n' )
 
 ## ---- eval = F----------------------------------------------------------------
-#  conditionalParameters( output, conditionOn = c('S1','S4') )
+#  gjamConditionalParameters( output, conditionOn = c('acerSacc','betuAlle','faguGran','querRubr') )
 
 ## ---- eval=FALSE--------------------------------------------------------------
 #  f   <- gjamSimData( n = 100, S = 200, typeNames='CA' )
 #  ml  <- list( ng = 2000, burnin = 500, typeNames = f$typeNames,
-#              reductList = list(r = 5, N = 20), PREDICTX = F )
+#              reductList = list(r = 15, N = 25), PREDICTX = F )
 #  out <- gjam( f$formula, f$xdata, f$ydata, modelList = ml )
 #  gjamPlot( output = out, plotPars = list(trueValues = f$trueValues) )
 
@@ -746,15 +744,15 @@ cbind(ml,mx)
 
 ## ----model fit, eval=F, eval=FALSE--------------------------------------------
 #  ml <- list( ng = 2000, burnin = 500, typeNames = typeNames,
-#              reductList = list(r = 5, N = 15) )
+#              reductList = list(r = 8, N = 15) )
 #  output <- gjam(~ host*poly, xdata, ydata, modelList = ml)
 
 ## ----plots, eval=F------------------------------------------------------------
 #  S <- ncol(ydata)
-#  specColor     <- rep('white',S)
+#  specColor     <- rep('blue',S)
 #  specColor[1]  <- '#b2182b'                 # highlight host status
-#  fit <- gjamPlot( output, plotPars = list(specColor = specColor, GRIDPLOTS=T) )
-#  
+#  fit <- gjamPlot( output, plotPars = list(specColor = specColor, GRIDPLOTS = T,
+#                                           SIGONLY = T) )
 #  fit$eComs[1:5,]
 
 ## ---- bstatus, eval=F---------------------------------------------------------
@@ -788,67 +786,6 @@ cbind(ml,mx)
 #  gjamIIEplot(fit1, response = 'status', effectMu = 'ind', effectSd = 'ind',
 #              legLoc = 'topright', ylim=c(-5,5))
 #  title('Indirect effect of microbiome')
-
-## ----predict, eval=F----------------------------------------------------------
-#  y0 <- ydata[,1,drop=F]*0                         # abundance in morbid host
-#  
-#  new    <- list(ydataCond = y0, nsim=50)
-#  morbid <- gjamPredict(output, newdata = new )
-#  
-#  new     <- list(ydataCond = y0 + 1, nsim = 50 )  # abundance in healthy host
-#  healthy <- gjamPredict(output, newdata = new )
-#  
-#  cols <- c('#fdd49e','#fdbb84','#fc8d59','#ef6548',
-#            '#d7301f','#990000', '#7f0000' ) # scale for predicted prevalence
-#  
-#  y    <- out$inputs$y
-#  i    <- 2:S
-#  h <- healthy$sdList$yMu[,i]
-#  m <- morbid$sdList$yMu[,i]
-#  d <- h - m
-#  
-#  mk <- d
-#  mk[ mk < 0 ] <- -1                  # prevalence of healthy minus morbid predictions
-#  mk[ mk > 0 ] <- 0
-#  mk <- colSums(mk)
-#  mk <- names( mk[ order(mk) ] )
-#  ocol  <- colorRampPalette( cols )( S - 1 )
-#  names(ocol) <- rev( mk )
-#  
-#  host  <- as.character(xdata$host)  # all host species
-#  hosts <- sort( unique(host) )
-#  nhost <- length(hosts)
-#  notu  <- 10                        # no. ranked OTUs to plot
-#  xwide <- 20
-#  ylim  <- c(0, 20)
-#  bins  <- -xwide:xwide
-#  
-#  par( mfrow=c(nhost, notu), bty = 'n', mar = c(.5, 1, 1, .5), omi=c(.4,.4,.4,.1)  )
-#  
-#  for(k in 1:nhost){
-#  
-#    mk <- dk <- d[ host == hosts[k], ]  # observations for host k
-#  
-#    mk[ mk < 0 ] <- -1                  # rank prevalence of negative effects
-#    mk[ mk > 0 ] <- 0
-#    mk <- colSums(mk)
-#    mk <- names( mk[ order(mk) ] )
-#  
-#    for(j in 1:notu){                   # plot highest ranked OTUs (h << m)
-#      yj <- dk[,mk[j]]
-#      yj[ yj < -xwide ] <- -xwide
-#      yj[ yj > xwide ] <- xwide
-#  
-#      hist( yj, breaks = bins, xlim = c(-xwide, xwide),
-#           ylim = ylim, main = substr(mk[j], 1, 8), xlab = '', ylab='',
-#           col = ocol[mk[j]], border = ocol[mk[j]],  axes = F)
-#      abline(v = 0, col = 'grey')
-#    }
-#  }
-#  ylab <- paste0( rev(hosts), collapse = '  ' )
-#  mtext( side = 1, 'Predicted prevalence in healthy minus morbid hosts', outer=T, line=1)
-#  mtext( side = 2, ylab, outer=T, line=0, cex=.8)
-#  mtext( side = 3, 'Most negative predictions by host spp', outer = T, line = 1)
 
 ## ----traitBox1, fig.width = 7, fig.height = 3.5, echo = FALSE-----------------
 
@@ -929,7 +866,6 @@ for(j in 1:length(xbox)){
 #  specByTrait <- tmp$specByTrait                 # S X M
 #  M           <- ncol(u)
 #  n           <- nrow(u)
-#  types                                          # 12 individual trait types
 #  cbind(colnames(u),tTypes)                      # M trait names and types
 
 ## ----setup2, eval = F---------------------------------------------------------
@@ -966,11 +902,9 @@ for(j in 1:length(xbox)){
 #  out$parameters$betaMu         # Q by M coefficient matrix alpha
 #  out$parameters$betaStandXmu   # Q by M standardized for X
 #  out$parameters$betaStandXWmu  # (Q-F) by M standardized for W/X, centered factors
-#  
-#  out$parameters$betaTable        # QM by stats posterior summary
-#  
-#  out$parameters$sigMu         # M by M covariance matrix omega
-#  out$parameters$sigSe         # M by M covariance std errors
+#  out$parameters$betaTable      # QM by stats posterior summary
+#  out$parameters$sigMu          # M by M covariance matrix omega
+#  out$parameters$sigSe          # M by M covariance std errors
 
 ## ----IIEx, eval = F-----------------------------------------------------------
 #  xdrydry <- xwetdry  <- out$inputs$xUnstand[1,]
@@ -1088,11 +1022,9 @@ for(j in 1:length(xbox)){
 #  tc[ 'leafneedledeciduous' ] <- '#003c30'
 #  tc[ 'shade' ] <- '#80cdc1'
 #  
-#  ncluster <- 5
-#  
 #  par(family = '')
-#  pl  <- list(width=4, height=4, CORLINES=F, GRIDPLOTS=T,
-#                    specColor = sc, traitColor = tc, ncluster = ncluster)
+#  pl  <- list(GRIDPLOTS=T,
+#                    specColor = sc, traitColor = tc, ncluster = 5)
 #  fit <- gjamPlot(output = out, pl)
 
 ## ----trait pars, eval = F-----------------------------------------------------

@@ -56,18 +56,16 @@ traity <- tmp$plotByCWM
 censor <- tmp$censor
 
 formula <- as.formula(~ temp + deficit)
-lo <- list(temp_ring = 0, deficit_drought = 0) # positive combinations
+lo <- list(temp_gmPerSeed = 0, temp_dioecious = 0 ) # positive effect on seed size, dioecy
 b  <- gjamPriorTemplate(formula, xdata, ydata = traity, lo = lo)
-bp <- list(loBeta = b$lo, hiBeta = b$hi)
 
-ml <- list(ng=4000, burnin=1000, typeNames = tTypes, censor = censor, 
-            betaPrior = bp)
+ml <- list(ng=3000, burnin=1000, typeNames = tTypes, censor = censor, betaPrior = b)
 out <- gjam(formula, xdata, ydata = traity, modelList = ml)
 
 S   <- ncol(traity)
 sc  <- rep('black',S)
 sc[colnames(traity) %in% c('ring','drought')] <- 'blue'
-pl  <- list(SMALLPLOTS=F, specColor=sc)           
+pl  <- list(specColor = sc)           
 gjamPlot(output = out, plotPars = pl)         
 }
 }

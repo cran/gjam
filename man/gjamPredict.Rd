@@ -51,7 +51,7 @@ See examples below.
 \dontrun{
 S   <- 10
 f   <- gjamSimData(n = 200, S = S, Q = 3, typeNames = 'CC') 
-ml  <- list(ng = 50, burnin = 5, typeNames = f$typeNames, holdoutN = 10)
+ml  <- list(ng = 1500, burnin = 50, typeNames = f$typeNames, holdoutN = 10)
 out <- gjam(f$formula, f$xdata, f$ydata, modelList = ml)
 
 # predict data
@@ -99,7 +99,6 @@ title('Cond. on 1st Sp')
 legend( 'topleft', c('first species absent', 'first species = 10'), 
         text.col = cols, bty = 'n')
 
-
 # conditional, out-of-sample
 n   <- 1000
 S   <- 10
@@ -113,7 +112,7 @@ ydata <- f$ydata[-holdOuts,]
 xx <- f$xdata[holdOuts,]     # use for prediction
 yy <- f$ydata[holdOuts,]
 
-ml  <- list(ng = 2000, burnin = 50, typeNames = f$typeNames)   # fit the non-holdouts
+ml  <- list(ng = 2000, burnin = 500, typeNames = f$typeNames)   # fit the non-holdouts
 out <- gjam(f$formula, xdata, ydata, modelList = ml)
 
 cdex <- sample(S, 4)        # condition on 4 species

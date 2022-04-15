@@ -300,7 +300,7 @@ The `print` function acts like `summary`
 print(out)
 ```
 
-Among the objects to consider initially are the design matrix `out$inputs$x`, response matrix `out$inputs$y`, and the MCMC `out$chains` with these names and sizes:
+Among the objects to consider initially are the design matrix `out$inputs$xUnstand`, response matrix `out$inputs$y`, and the MCMC `out$chains` with these names and sizes:
 
 ```{r summary of chains, eval = F}
 summary(out$chains)
@@ -393,7 +393,7 @@ To illustrate proper model specification I use a few lines from the `data.frame`
 library(repmis)
 d <- "https://github.com/jimclarkatduke/gjam/blob/master/forestTraits.RData?raw=True"
 source_data(d)
-xdata <- forestTraits$xdata[,c(1,2,8)]
+xdata <- forestTraits$xdata[,c(1,2,7,8)]
 ```
 
 
@@ -763,13 +763,13 @@ for(j in 1:nh)lo[[j]] <- NA
 hi <- lo
 
 # setup prior and fit model
-bp <- gjamPriorTemplate(formula, xdata, ydata = treeYdata, lo = lo, hi=hi)
-rl <- list(N = 10, r = 5) 
-ml <- list(ng=1000, burnin=200, typeNames = 'CA', betaPrior = bp, reductList=rl)
+bp  <- gjamPriorTemplate(formula, xdata, ydata = treeYdata, lo = lo, hi=hi)
+rl  <- list(N = 10, r = 5) 
+ml  <- list(ng=1000, burnin=200, typeNames = 'CA', betaPrior = bp, reductList=rl)
 out <- gjam(formula, xdata, ydata = treeYdata, modelList = ml)
 ```
 
-The values in `out$parameters$betaMu` will show these omitted values as NA. The sampling for $\beta$ that conditions on zeros is described in the Supplement to [Clark et al., (2020)](https://www.pnas.org/content/117/29/17074)). 
+The values in `out$parameters$betaMu` will show these omitted values as `NA`.  
 
 ## <span style="color:teal">sample effort in count data</span>
 
@@ -794,7 +794,7 @@ gjamPlot( output = out, plotPars = list( trueValues = f$trueValues) )
 For comparison, here is an example with fractional composition, where there is no effort:
 
 ```{r compFC, eval = FALSE}
-f   <- gjamSimData( S = 20, typeNames = 'FC' )
+f   <- gjamSimData( S = 10, typeNames = 'FC' )
 ml  <- list( ng = 2000, burnin = 500, typeNames = f$typeNames )
 out <- gjam( f$formula, f$xdata, f$ydata, modelList = ml )
 gjamPlot( output = out, plotPars = list( trueValues = f$trueValues ) )
@@ -810,7 +810,6 @@ Ordinal count (`'OC'`) data are collected where abundance must be evaluated rapi
 f   <- gjamSimData( typeNames = 'OC' ) 
 ml  <- list( ng = 2000, burnin = 500, typeNames = f$typeNames )
 out <- gjam( f$formula, f$xdata, f$ydata, modelList = ml )
-print(out)
 ```
 
 A simple plot of the posterior mean values of `cutMu` shows the estimates with true values from simulation:
@@ -913,8 +912,6 @@ object           |  dimension | description
 `randByGroupMu`  | `S` by `G` | random groups, mean
 `randByGroupSe`  | `S` by `G` | SE
 `groupIndex`     | `n`        | group index for observations
-`rndEffMu`       | `n` by `S` | RE from dimension reduction, mean
-`rndEffSe`       | `n` by `S` | SE 
 
 
 
@@ -1140,9 +1137,8 @@ The prediction plot fits the data well, because it assumes the same effort.  How
 
 ```{r effortPredictNew, eval = FALSE}
 cols <- c( '#1b9e77','#d95f02' )
-
-new <- list( xdata = f$xdata, effort=eff, nsim = 500 ) # effort unchanged 
-p1  <- gjamPredict( output = out, newdata = new )
+new  <- list( xdata = f$xdata, effort=eff, nsim = 500 ) # effort unchanged 
+p1   <- gjamPredict( output = out, newdata = new )
 
 plot(f$y[,tn == 'DA'], p1$sdList$yMu[,tn == 'DA'], 
      xlab = 'Observed', ylab = 'Predicted', cex=.2, col = cols[1] )
@@ -1196,17 +1192,17 @@ library(repmis)
 d <- "https://github.com/jimclarkatduke/gjam/blob/master/forestTraits.RData?raw=True"
 source_data(d)
 
-xdata <- forestTraits$xdata                          # n X Q
+xdata <- forestTraits$xdata                            # n X Q
 ydata <- gjamReZero( forestTraits$treesDeZero )        # n X S
 ydata <- ydata[,colnames(ydata) != 'other']
-ydata <- gjamTrimY( ydata, 10, OTHER=F )$y
+ydata <- gjamTrimY( ydata, 200, OTHER=F )$y
 ```
 
-Here is a model fitted to the forest `"CA"` data:
+Here is a model fitted to the forest `"DA"` data:
 
 ```{r gjamCA, eval=F}
 ml      <- list( ng = 2500, burnin = 1000, typeNames = 'DA', 
-                 reductList = list( N = 15, r = 10), PREDICTX = F )
+                 PREDICTX = F )
 formula <- as.formula(~ temp + deficit*moisture)
 output  <- gjam( formula, xdata, ydata, modelList = ml )
 
@@ -1227,9 +1223,9 @@ tmp     <- gjamPredict(output, newdata = newdata)
 condy   <- tmp$sdList$yMu
 
 plot(ydata[,-wc], full[,-wc], ylim = c(range(ydata)), 
-     xlab = 'Observed', ylab = 'Predicted', col = cols[1], cex = .1)
+     xlab = 'Observed', ylab = 'Predicted', col = cols[1], cex = .3)
 abline( 0, 1, lty=2 )
-points( ydata[,-wc], condy[,-wc], col = cols[2], cex = .1)
+points( ydata[,-wc], condy[,-wc], col = cols[2], cex = .3)
 legend( 'topleft', c('Unconditional', 'Conditional on half of species'), 
         text.col = cols[1:2], bty='n' )
 ```
@@ -1268,7 +1264,7 @@ $$
 `gjamConditionalParameters` takes the fitted `gjam` object and returns these three matrices, each as a matrix of posterior means and standard errors and as a table with 95\% credible intervals. The `vector conditionOn` holds the column names in `ydata` for the variables that I want to condition on, i.e., in the subvector $\mathbf{v}$,
 
 ```{r, eval = F}
-conditionalParameters( output, conditionOn = c('S1','S4') )
+gjamConditionalParameters( output, conditionOn = c('acerSacc','betuAlle','faguGran','querRubr') )
 ```
 
 Matrix $\mathbf{A}$ is like a regression matrix on species. It is a $S_u \times S_v$ matrix holding the effects of each response in `conditionOn` ($\mathbf{v}$) on the other columns ($\mathbf{u}$).
@@ -1316,7 +1312,7 @@ Dimension reduction is invoked in one of two ways.  **The first way** is automat
 ```{r, eval=FALSE}
 f   <- gjamSimData( n = 100, S = 200, typeNames='CA' )
 ml  <- list( ng = 2000, burnin = 500, typeNames = f$typeNames, 
-            reductList = list(r = 5, N = 20), PREDICTX = F )  
+            reductList = list(r = 15, N = 25), PREDICTX = F )  
 out <- gjam( f$formula, f$xdata, f$ydata, modelList = ml )
 gjamPlot( output = out, plotPars = list(trueValues = f$trueValues) )
 ```  
@@ -1378,13 +1374,12 @@ The interactions in the model involve two factors `poly` (two levels, polycultur
 xdata$host <- relevel(xdata$host,'acerRubr')
 ```
 
-The `gjam vignette` on traits discusses multilevel factors in more detail.  We discuss multilevel factors in the context of interactions below.
 
 For this example we specify up to $N = 20$ clusters with $r = 3$ columns each.  Here is an analysis of host seedling and polyculture effect on combined host morbidity status and the microbiome composition:
 
 ```{r model fit, eval=F, eval=FALSE}
 ml <- list( ng = 2000, burnin = 500, typeNames = typeNames, 
-            reductList = list(r = 5, N = 15) )
+            reductList = list(r = 8, N = 15) )
 output <- gjam(~ host*poly, xdata, ydata, modelList = ml)
 ``` 
 
@@ -1392,10 +1387,10 @@ Here is output:
 
 ```{r plots, eval=F}
 S <- ncol(ydata)
-specColor     <- rep('white',S)
+specColor     <- rep('blue',S)
 specColor[1]  <- '#b2182b'                 # highlight host status
-fit <- gjamPlot( output, plotPars = list(specColor = specColor, GRIDPLOTS=T) )
-
+fit <- gjamPlot( output, plotPars = list(specColor = specColor, GRIDPLOTS = T,
+                                         SIGONLY = T) )
 fit$eComs[1:5,]
 ``` 
 
@@ -1458,71 +1453,6 @@ The plot at left is the direct effect, which includes both the main effects plus
 
 The indirect effects bring with them the main effects and interaction effects on each microbial taxon.  In this example the indirect effects are noisy, showing large 95% intervals. 
 
-I might also wish to explore the taxa that are more abundant in healthy versus morbid hosts.  This can be done with `gjamPredict`.  Here are conditional predictions for responses with `status` first set to 0 (morbid) and then set to 1 (healthy):
-
-```{r predict, eval=F}
-y0 <- ydata[,1,drop=F]*0                         # abundance in morbid host
-
-new    <- list(ydataCond = y0, nsim=50)
-morbid <- gjamPredict(output, newdata = new ) 
-
-new     <- list(ydataCond = y0 + 1, nsim = 50 )  # abundance in healthy host
-healthy <- gjamPredict(output, newdata = new )
-
-cols <- c('#fdd49e','#fdbb84','#fc8d59','#ef6548',
-          '#d7301f','#990000', '#7f0000' ) # scale for predicted prevalence
-
-y    <- out$inputs$y
-i    <- 2:S
-h <- healthy$sdList$yMu[,i] 
-m <- morbid$sdList$yMu[,i] 
-d <- h - m
-
-mk <- d 
-mk[ mk < 0 ] <- -1                  # prevalence of healthy minus morbid predictions
-mk[ mk > 0 ] <- 0
-mk <- colSums(mk)
-mk <- names( mk[ order(mk) ] )
-ocol  <- colorRampPalette( cols )( S - 1 )
-names(ocol) <- rev( mk )
-
-host  <- as.character(xdata$host)  # all host species
-hosts <- sort( unique(host) )
-nhost <- length(hosts)
-notu  <- 10                        # no. ranked OTUs to plot
-xwide <- 20
-ylim  <- c(0, 20)
-bins  <- -xwide:xwide
-
-par( mfrow=c(nhost, notu), bty = 'n', mar = c(.5, 1, 1, .5), omi=c(.4,.4,.4,.1)  )
-
-for(k in 1:nhost){
-  
-  mk <- dk <- d[ host == hosts[k], ]  # observations for host k
-  
-  mk[ mk < 0 ] <- -1                  # rank prevalence of negative effects
-  mk[ mk > 0 ] <- 0
-  mk <- colSums(mk)
-  mk <- names( mk[ order(mk) ] )
-  
-  for(j in 1:notu){                   # plot highest ranked OTUs (h << m)
-    yj <- dk[,mk[j]]
-    yj[ yj < -xwide ] <- -xwide
-    yj[ yj > xwide ] <- xwide
-    
-    hist( yj, breaks = bins, xlim = c(-xwide, xwide),
-         ylim = ylim, main = substr(mk[j], 1, 8), xlab = '', ylab='', 
-         col = ocol[mk[j]], border = ocol[mk[j]],  axes = F)
-    abline(v = 0, col = 'grey')
-  }
-}
-ylab <- paste0( rev(hosts), collapse = '  ' )
-mtext( side = 1, 'Predicted prevalence in healthy minus morbid hosts', outer=T, line=1)
-mtext( side = 2, ylab, outer=T, line=0, cex=.8)
-mtext( side = 3, 'Most negative predictions by host spp', outer = T, line = 1)
-```
-
-Rows of plots show for a given host species the 10 OTUs having the largest negative difference between healthy and morbid host plants. Colors indicate the OTU rank for the same variable across all host species.
 
 `r bigskip()`
 
@@ -1616,7 +1546,7 @@ sbyt  <- sbyt[match(colnames(pbys),rownames(sbyt)),] # trait matrix matches ydat
 identical(rownames(sbyt),colnames(pbys))
 ```
 
-The matrix `pbys` holds biomass values for species, rounded off to reduce storage. The first six columns of `sbyt` are centered and standardized.  The three ordinal classes are integer values, but do not represent an absolute scale (see below).  The three groups of categorical variables in `data.frame sbyt` have different numbers of levels shown here:
+The matrix `pbys` holds biomass values for species. The first six columns of `sbyt` are centered and standardized.  The three ordinal classes are integer values, but do not represent an absolute scale (see below).  The three groups of categorical variables in `data.frame sbyt` have different numbers of levels shown here:
 
 ```{r input7, eval = F}
 table(sbyt$leaf)      # four levels
@@ -1636,7 +1566,6 @@ censor      <- tmp$censor                      # (0, 1) censoring, two-level CAT
 specByTrait <- tmp$specByTrait                 # S X M
 M           <- ncol(u)
 n           <- nrow(u)
-types                                          # 12 individual trait types
 cbind(colnames(u),tTypes)                      # M trait names and types
 ```
 
@@ -1738,11 +1667,9 @@ The model fit is interpreted in the same way as other gjam analyses. Note that `
 out$parameters$betaMu         # Q by M coefficient matrix alpha
 out$parameters$betaStandXmu   # Q by M standardized for X
 out$parameters$betaStandXWmu  # (Q-F) by M standardized for W/X, centered factors
-
-out$parameters$betaTable        # QM by stats posterior summary
- 
-out$parameters$sigMu         # M by M covariance matrix omega
-out$parameters$sigSe         # M by M covariance std errors
+out$parameters$betaTable      # QM by stats posterior summary
+out$parameters$sigMu          # M by M covariance matrix omega
+out$parameters$sigSe          # M by M covariance std errors
 ```
 
 The `output` list contains a large number of diagnostics explained in help pages.  
@@ -1921,11 +1848,9 @@ tc[ 'leafneedleevergreen' ] <- '#3288bd'
 tc[ 'leafneedledeciduous' ] <- '#003c30'
 tc[ 'shade' ] <- '#80cdc1'
 
-ncluster <- 5
-
 par(family = '')
-pl  <- list(width=4, height=4, CORLINES=F, GRIDPLOTS=T,
-                  specColor = sc, traitColor = tc, ncluster = ncluster) 
+pl  <- list(GRIDPLOTS=T,
+                  specColor = sc, traitColor = tc, ncluster = 5) 
 fit <- gjamPlot(output = out, pl)
 ```
 

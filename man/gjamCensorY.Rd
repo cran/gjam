@@ -47,7 +47,7 @@ y  <- f$y
 cc <- c(3:6)                                                # censored columns
 g  <- gjamCensorY(values = v, intervals = i, y = y, whichcol = cc)
 y[,cc] <- g$y                                               # replace columns
-ml     <- list(ng = 50, burnin = 10, censor = g$censor, typeNames = f$typeNames)
+ml     <- list(ng = 500, burnin = 100, censor = g$censor, typeNames = f$typeNames)
 output <- gjam(f$formula, xdata = f$xdata, ydata = y, modelList = ml)
 
 #repeat with ng = 2000, burnin = 500, then:
@@ -62,7 +62,7 @@ rownames(i) <- c('down','up')
 
 f   <- gjamSimData(typeNames='CA')   
 g   <- gjamCensorY(values = v, intervals = i, y = f$y)
-ml  <- list(ng = 50, burnin = 10, censor = g$censor, typeNames = f$typeNames)
+ml  <- list(ng = 500, burnin = 100, censor = g$censor, typeNames = f$typeNames)
 out <- gjam(f$formula, xdata = f$xdata, ydata = g$y, modelList = ml)
 
 #repeat with ng = 2000, burnin = 500, then:

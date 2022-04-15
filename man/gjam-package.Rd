@@ -30,8 +30,8 @@
   \tabular{ll}{
   Package: \tab gjam\cr
   Type: \tab Package\cr
-  Version: \tab 2.5.2\cr
-  Date: \tab 2022-2-15\cr
+  Version: \tab 2.6\cr
+  Date: \tab 2022-4-14\cr
   License: \tab GPL (>= 2)\cr
   URL: \tab http://sites.nicholas.duke.edu/clarklab/code/\cr
   }
@@ -91,7 +91,7 @@ Clark, J.S., D. Nemergut, B. Seyednasrollah, P. Turner, and S. Zhang. 2017.  Gen
 
 Clark, J.S. 2016. Why species tell more about traits than traits tell us about species: Predictive models.  Ecology 97, 1979-1993.
   
-Taylor-Rodriguez, D., K. Kaufeld, E. M. Schliep, J. S. Clark, and A. E. Gelfand. 2016.  Joint species distribution modeling: dimension eduction using Dirichlet processes.  Bayesian Analysis, in press.
+Taylor-Rodriguez, D., K. Kaufeld, E. M. Schliep, J. S. Clark, and A. E. Gelfand. 2016.  Joint species distribution modeling: dimension eduction using Dirichlet processes.  Bayesian Analysis, 12, 939-967. doi: 10.1214/16-BA1031.
 }
 \keyword{ package }
 \seealso{

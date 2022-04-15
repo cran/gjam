@@ -43,7 +43,7 @@ See examples below.
 \examples{
 \dontrun{
 f   <- gjamSimData(n = 200, S = 10, Q = 3, typeNames = 'CA') 
-ml  <- list(ng = 5000, burnin = 5, typeNames = f$typeNames, holdoutN = 10)
+ml  <- list(ng = 2000, burnin = 50, typeNames = f$typeNames, holdoutN = 10)
 output <- gjam(f$formula, f$xdata, f$ydata, modelList = ml)
 
 # condition on three species

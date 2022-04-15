@@ -34,7 +34,7 @@
 \examples{
 \dontrun{
 f      <- gjamSimData(S = 30, typeNames = 'CA') 
-ml     <- list(ng = 30, burnin = 5, typeNames = f$typeNames, holdoutN = 10)
+ml     <- list(ng = 1000, burnin = 200, typeNames = f$typeNames, holdoutN = 10)
 output <- gjam(f$formula, f$xdata, f$ydata, modelList = ml)
 ePCA   <- gjamOrdination(output, PLOT=TRUE)
 eNMDS  <- gjamOrdination(output, PLOT=TRUE, method='NMDS')
