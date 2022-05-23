@@ -138,10 +138,10 @@ bigskip <- function(){
 #  out$parameters$betaMu
 
 ## ----betaAll, eval=F----------------------------------------------------------
-#  out$parameters$betaMu         # S by M coefficient matrix unstandardized
-#  out$parameters$betaSe         # S by M coefficient SE
-#  out$parameters$betaStandXmu   # S by M standardized for X
-#  out$parameters$betaStandXWmu  # (S-F) by M standardized for W/X, centered factors
+#  out$parameters$betaMu           # S by M coefficient matrix unstandardized
+#  out$parameters$betaSe           # S by M coefficient SE
+#  out$parameters$betaStandXmu     # S by M standardized for X
+#  out$parameters$betaStandXWmu    # (S-F) by M standardized for W/X, centered factors
 #  
 #  out$parameters$betaTable        # SM by stats posterior summary
 #  out$parameters$betaStandXTable  # SM by stats posterior summary

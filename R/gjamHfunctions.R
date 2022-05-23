@@ -28,10 +28,18 @@ gjamConditionalParameters <- function( output, conditionOn, nsim = 2000 ){
   # output - class gjam
   # conditionOn - responses (column names in ydata) to condition on
   
+  conditionOn <- .cleanNames( conditionOn )
+
   ynames <- colnames( output$inputs$y )
   yNot   <- ynames[ !ynames %in% conditionOn ]
   sigma  <- output$parameters$sigMu
   beta   <- output$parameters$betaMu
+  
+  if( 'timeList' %in% names(output$inputs))
+    stop(' conditional parameters not implemented for time series')
+  if( is.null(beta) )stop('conditional parameters require a beta matrix')
+  
+  beta[ is.na(beta) ] <- 0
   xnames <- rownames(beta)
   
   Q <- nrow(beta)
@@ -80,13 +88,17 @@ gjamConditionalParameters <- function( output, conditionOn, nsim = 2000 ){
   colnames(cg) <- .multivarChainNames(rownames(C),colnames(C))
   colnames(pg) <- .multivarChainNames(rownames(P),colnames(P))
   
+  tmp <- .multivarChainNames2matrix( chainNames = colnames(bchain), dimnames(beta) )
+  wB  <- tmp$wB
+  bi  <- tmp$beta
+  
   m <- 0
   
   for( i in g ){
     
     m <- m + 1
     
-    bi <- matrix( bchain[i,], Q, S )
+    bi[wB] <- bchain[i,]
     
     if(REDUCT){
       sigmaerror <- output$chains$sigErrGibbs[i]
@@ -439,8 +451,8 @@ gjamConditionalParameters <- function( output, conditionOn, nsim = 2000 ){
   Rmat[ is.nan(Rmat) ] <- 0
   
   wL <- which(!is.na(Rmat[,notOther]),arr.ind=T)
-  lo[is.na(lo)] <- 0
-  hi[is.na(hi)] <- 0
+ # lo[is.na(lo)] <- 0
+ # hi[is.na(hi)] <- 0
   
   list(Rmat = Rmat, loRmat = lo[,notOther], hiRmat = hi[,notOther], wL = wL, 
        gindex = gindex, Vmat = Vmat)
@@ -3495,10 +3507,10 @@ gjamFillMissingTimes <- function(xdata, ydata, edata, groupCol, timeCol,
     sinv <- solve( sigma[drop=F, pnew, pnew] )
     p1   <- sigma[drop=F, cnew,pnew]%*%sinv
     mu1  <- mu[drop=F, ,cnew] + t( p1%*%t( xx[drop=F, ,pnew] - mu[drop=F, ,pnew] ) )
-    vr1  <- sigma[drop=F, cnew,cnew] - p1%*%sigma[drop=F, pnew,cnew]
+    vr1 <- solveRcpp( sinv[drop=F, cnew, cnew] )
+    
     return( list( mu = mu1, vr = vr1 ) )
   }
-  
 }
 
 checkCondDistribution <- function(xx, mu, sigma, cond ){
@@ -3770,20 +3782,19 @@ checkCondDistribution <- function(xx, mu, sigma, cond ){
 }
 
 
-.getUnstandX <- function(formula, x, xdata, standRows ){
+.getUnstandX <- function(formula, xs, xdata, standRows ){
   
   # x is standardized for columns standRows
   # create an unstandardized version of x
   
-  if(length(standRows) == 0)return( list( xu = x, S2U = diag( ncol(x)) ) )
+  if(length(standRows) == 0)return( list( xu = xs, S2U = diag( ncol(xs)) ) )
   
-  tmp <- model.frame(formula, data = xdata, na.action=NULL)
+  tmp      <- model.frame(formula, data = xdata, na.action=NULL)
   xUnstand <- model.matrix(formula, data=tmp)
   colnames(xUnstand)[1] <- 'intercept'
   
   wna <- unique( which(is.na( xUnstand ), arr.ind=T)[,1] )
   
-  xs <- x
   xu <- xUnstand
   if(length(wna) > 0){
     xs <- xs[-wna,]
@@ -3791,6 +3802,8 @@ checkCondDistribution <- function(xx, mu, sigma, cond ){
   }
   
   s2u <- solveRcpp( crossprod(xu) )%*%crossprod(xu,xs)
+  rownames(s2u) <- colnames(xs)
+  s2u[ abs(s2u) < 1e-12 ] <- 0
   
   list(xu = xUnstand, S2U = s2u)
 }
@@ -3821,13 +3834,28 @@ checkCondDistribution <- function(xx, mu, sigma, cond ){
   
   wni <- which(wna[,2] %in% ifact)
   if( length(wni) > 0 ){
-    stop('cannot have NA in factor levels')
+    wni <- wna[wni,]
+    wna <- wna[-wni,]    
+    
+    #   stop('cannot have NA in factor levels')
   }
-  if( nrow(wna) > 0 ){                 # temporarily NA to means
-    wmu       <- sapply( xu, mean, na.rm=T )
-    wnaCol    <- colnames(xu)[wna[,2]]
-    xs[ wna ] <- wmu[ wna[,2] ]
-    xu[ wna ] <- wmu[ wna[,2] ]
+  wna <- which( is.na(xu[,standRows]), arr.ind=T )
+  
+  if( length(wna) > 0 ){                 # temporarily NA to means
+    
+    xs[,standRows][ wna ] <- xmu[ wna[,2] ]
+    xu[,standRows][ wna ] <- xmu[ wna[,2] ]
+    
+    if( length(wni) > 0 ){
+      
+      fcol <- unique( wni[,2] )
+      
+      for( m in fcol ){
+        mf <- levels(xu[,m])[1]
+        wm <- wni[ wni[,2] == m, ]
+        xu[ wm ] <- mf
+      }
+    }
   }
   
   sc <- standRows
@@ -3835,13 +3863,13 @@ checkCondDistribution <- function(xx, mu, sigma, cond ){
   
   xs[, sc] <- t( ( t( xs[, sc, drop = F] ) - xmu[sc] )/xsd[sc] )
   
-  xdataStand[,sc] <- xs[,sc] # xdata with standardized columns
+  xdataStand[,sc] <- xs[,sc, drop=F] # xdata with standardized columns
   
   xs <- model.matrix(formula, data.frame(xs) )
   colnames(xs)[1] <- 'intercept'
   
   xu <- model.matrix(formula, xu )   # unstandardized
-  colnames(xs)[1] <- 'intercept'
+  colnames(xs)[1] <- colnames(xu)[1] <- 'intercept'
   
   bigSD <- apply(xs, 2, range)
   wk <- which( abs(bigSD) > 20, arr.ind=T )
@@ -3851,19 +3879,22 @@ checkCondDistribution <- function(xx, mu, sigma, cond ){
     FLAG <- T
   }
   
-  ssx <- try( solveRcpp( crossprod( xs ) ), T )
+  XX  <- crossprod( xs )
+  ssx <- try( solveRcpp( XX ), T )
   
   if( inherits( ssx,'try-error') ){
     u2s <- diag( ncol(xs) )
+    attr(u2s, 'valid' ) <- FALSE
   }else{
     u2s <- ssx%*%crossprod(xs,xu) # bs <- u2s%*%bu
     u2s[ abs(u2s) < 1e-10 ] <- 0
+    attr(u2s, 'valid' ) <- TRUE
   }
+  rownames(u2s) <- colnames(xs)
+  colnames(u2s) <- colnames(xu)
   
-  if( nrow(wna) > 0 ){        # replace NA
-    wna[,2] <- match( wnaCol, colnames(xs) )
-    xs[ wna ] <- NA
-    wna[,2] <- match( wnaCol, colnames(xdataStand) )
+  if( length(wna) > 0 ){        # replace NA
+    xs[ wna ] <- 0
     xdataStand[ wna ] <- NA
   }
 
@@ -3932,6 +3963,10 @@ checkCondDistribution <- function(xx, mu, sigma, cond ){
   N <- r <- rl <- NULL
   
   reductList <- modelList$reductList
+  
+  if( 'REDUCT' %in% names(modelList) ){
+    if( !modelList$REDUCT )return(rl = NULL)
+  }
   
   if( !is.null(reductList) ){
     
@@ -4015,12 +4050,29 @@ checkCondDistribution <- function(xx, mu, sigma, cond ){
   if(termB){ # beta
     
     if('betaPrior' %in% names(timeList)){
+      bm    <- model.frame( timeList$formulaBeta, xdata )
+      int   <- attr( attributes(bm)$terms, 'intercept' )
+      bnames <- attr( attributes(bm)$terms, "term.labels")
+      if( int == 1 )bnames <- c( 'intercept', bnames )
       loBeta <- timeList$betaPrior$lo
       hiBeta <- timeList$betaPrior$hi
       beta   <- (loBeta + hiBeta)/2
       beta[ is.nan(beta) | beta == -Inf | beta == Inf ] <- 0
-      loBeta[is.na(beta)] <- hiBeta[is.na(beta)] <- 0
-      beta[is.na(beta)] <- 0
+      
+      bg <- matrix( 0, length(bnames), ncol(beta) )
+      rownames(bg) <- bnames
+      colnames(bg) <- colnames(beta)
+      lo <- bg - 100
+      hi <- bg + 100
+      
+      lo[ rownames(loBeta), ] <- loBeta
+      hi[ rownames(hiBeta), ] <- hiBeta
+      bg[ rownames(beta), ] <- beta
+      
+      loBeta <- lo
+      hiBeta <- hi
+      beta   <- bg
+      
     } else{
       beta <- matrix(0,Q,S)
       rownames(beta) <- colnames(x)
@@ -4061,14 +4113,10 @@ checkCondDistribution <- function(xx, mu, sigma, cond ){
     
     Umat <- wz[,uindex[,1]]*wz[,uindex[,2]] # note: tindex[,2] makes this w[t-1,]*w[t-1,]
     
-    tmp   <- .getPattern(loAmat, wA)
-    Arows <- tmp$rows
-   # Apattern <- tmp$pattern
-    
-   # Arows <- matrix( 1:nrow(Amat), ncol = 1 )
-    
+    tmp      <- .getPattern(loAmat, wA)
+    Arows    <- tmp$rows
     Apattern <- uindex
-    Apattern[ Apattern[,2] == Apattern[,1], 2] <- NA
+  #  Apattern[ Apattern[,2] == Apattern[,1], 2] <- NA
     
     Amat[!is.finite(Amat)] <- 0
     zA <- which(Amat == 0)
@@ -4078,13 +4126,13 @@ checkCondDistribution <- function(xx, mu, sigma, cond ){
     
     Apattern <- Apattern[ Apattern[,1] %in% c(1:wrow),]
     Apattern <- Apattern[ !Apattern[,1] > wcol,]
-    Apattern[Apattern %in% other] <- NA
+   # Apattern[Apattern %in% other] <- NA
     Apattern <- Apattern[1:wrow,]
   }
   
   if(termR){ # rho
     
-    if('rhoPrior' %in% names(timeList)){
+    if( 'rhoPrior' %in% names(timeList) ){
       lprior <- timeList$rhoPrior
       lprior$lo[ is.na(lprior$lo) | is.na(lprior$hi) ] <- 0
       lprior$hi[ is.na(lprior$lo) | is.na(lprior$hi) ] <- 0
@@ -4430,15 +4478,15 @@ gjamSensitivity <- function(output, group=NULL, nsim=100, PERSPECIES = TRUE){
   specByTrait <- traitTypes <- notStandard <- NULL
   censor <- censorCA <- censorDA <- CCgroups <- FCgroups <- intMat <- NULL
   N  <- r <- otherpar <- pg <- NULL
-  bFacGibbs <- fSensGibbs <- NULL
+  bFacGibbs <- fSensGibbs <- sensTable <- NULL
   facNames  <- character(0)
   groupRandEff <- NULL
   x <- y <- y0 <- effort <- NULL
+  xnames <- xlnames <- NULL
   ng     <- 2000
   burnin <- 500
   BPRIOR <- LPRIOR <- REDUCT <- TRAITS <- FULL <- FALSE
   termB <- termR <- termA <- FALSE
-#  UNSTAND <- FALSE                                       # do not standardize X
   PREDICTX <- TRUE
   rhoPrior <- betaPrior <- alphaPrior <- NULL
   
@@ -4494,7 +4542,7 @@ gjamSensitivity <- function(output, group=NULL, nsim=100, PERSPECIES = TRUE){
     
     toConsole( 'Note: Fitted as a time series model', verbose = verbose )
     
-    wterms <- character(0)
+    formTerms <- wterms <- character(0)
     
     ww <- which( sapply( timeList, is.null ) )
     if(length(ww) > 0)timeList <- timeList[ -ww ]
@@ -4546,7 +4594,8 @@ gjamSensitivity <- function(output, group=NULL, nsim=100, PERSPECIES = TRUE){
     
     if( length(formTerms) > 1 & '1' %in% formTerms )
       formTerms <- formTerms[ formTerms != '1' ]
-    formula <- as.formula( paste( '~', paste0(formTerms, collapse = '+') ) )
+    formTerms <- paste( '~', paste0(formTerms, collapse = '+') )
+    formula   <- as.formula( formTerms  )
     
     TIME     <- T
     holdoutN <-  0
@@ -4635,21 +4684,17 @@ gjamSensitivity <- function(output, group=NULL, nsim=100, PERSPECIES = TRUE){
   effMat <- effort$values
   modelList$effort <- effort
   
-  y2e <- y/effMat
- # efactor <- 1
+  w <- y/effMat
   
- # if( termA ){     # if termA, rescale edata due to w^2 terms
- #   efactor <- mean( apply( y2e, 2, median ) )/100
- #   effMat <- effMat*efactor
- #   effort$values <- effMat
- #   w <- y2e <- y/effMat
- # }
-  
-  y2e <- y2e[y2e > 1 ]
-  
-  re <- floor( diff( range(log10(y2e),na.rm=T) ) )
-  if(re > 3 & verbose)
-    cat(paste('\nNote: y/effort > ', re, ' orders of magnitude--consider units near 1\n',sep='') )
+# efactor <- 1
+# efactor <- round( apply( w, 2, mean ) )
+# if( termA ) efactor[ 1:length(efactor) ] <- round( mean(efactor) )
+ 
+# if( mean(efactor) > 100 ){
+#   effMat <- t(t(effMat)*efactor)
+#   effort$values <- effMat
+#   w <- y/effMat
+# }
   
   tmp      <- .gjamGetTypes(typeNames)
   typeCols <- tmp$typeCols
@@ -4658,8 +4703,8 @@ gjamSensitivity <- function(output, group=NULL, nsim=100, PERSPECIES = TRUE){
   allTypes <- sort(unique(typeCols))
   
 #  if( UNSTAND )notStandard <- colnames(xdata)
-  standard <- colnames(xdata)[!colnames(xdata) %in% notStandard]
-  standard <- standard[ standard != 'intercept' ]
+#  standard <- colnames(xdata)[!colnames(xdata) %in% notStandard]
+#  standard <- standard[ standard != 'intercept' ]
   
   tmp <- .gjamXY(formula, xdata, y, typeNames, notStandard, verbose = verbose) # all terms
   x      <- tmp$x; y <- tmp$y; snames <- tmp$snames
@@ -4845,9 +4890,7 @@ gjamSensitivity <- function(output, group=NULL, nsim=100, PERSPECIES = TRUE){
     zeroBeta <- .factorCoeffs2Zero(factorBeta, snames, betaPrior)  # max zero is missing factor level
   }
   
-  zeroRho <- NULL
-  
-  uindex <- NULL
+  zeroRho <- uindex <- NULL
   
   ############### time 
   if( TIME ){
@@ -4866,6 +4909,7 @@ gjamSensitivity <- function(output, group=NULL, nsim=100, PERSPECIES = TRUE){
       Umat   <- tmp$Umat;   uindex <- tmp$uindex; Arows <- tmp$Arows
       loAmat <- tmp$loAmat; hiAmat <- tmp$hiAmat; aindex <- tmp$aindex
       Unew <- Umat
+      if( !is.finite(mean(loAmat[wA])) )stop( 'values in loAmat not finite: check .getTimeIndex' )
     }
     if( termR & LPRIOR ){
       Rmat   <- tmp$Rmat; Rpattern <- tmp$Rpattern;  wL <- tmp$wL; zR = tmp$zR;      
@@ -4903,7 +4947,7 @@ gjamSensitivity <- function(output, group=NULL, nsim=100, PERSPECIES = TRUE){
     
     bigx <- numeric(0)
     if(termB){
-      bigx <- x[tindex[,2],xnames]
+      bigx <- x[drop=F, tindex[,2], xnames]
       nb <- nrow(bg)
     }
     if(termR){
@@ -4924,7 +4968,7 @@ gjamSensitivity <- function(output, group=NULL, nsim=100, PERSPECIES = TRUE){
     Y <- w[tindex[,2],notOther] - w[tindex[,1],notOther]
     init <- bigi%*%crossprod(bigx, Y)
     
-    if(termB){
+    if( termB ){
       binit <- init[1:nb,]
       init  <- init[-c(1:nb),]
       binit[binit < loB] <- loB[binit < loB]
@@ -4937,8 +4981,13 @@ gjamSensitivity <- function(output, group=NULL, nsim=100, PERSPECIES = TRUE){
     if(termR){
       rinit <- init[1:nr,]
       init  <- init[-c(1:nr),]
-      rinit[rinit < loRmat] <- loRmat[rinit < loRmat]
-      rinit[rinit > hiRmat] <- hiRmat[rinit > hiRmat]
+      loR   <- loRmat
+      hiR   <- hiRmat
+      loR[ !is.finite(loR) ] <- 0
+      hiR[ !is.finite(hiR) ] <- 0
+      
+      rinit[rinit < loR] <- ( loR[rinit < loR] + hiR[rinit < loR] )/2
+      rinit[rinit > hiR] <- ( loR[rinit > hiR] + hiR[rinit > hiR] )/2
       
       ones <- rinit*0 
       ones[ wL ] <- 1
@@ -4952,8 +5001,6 @@ gjamSensitivity <- function(output, group=NULL, nsim=100, PERSPECIES = TRUE){
       hiA <- hiAmat
       hiA[ !is.finite(hiA) ] <- 0
       
-  #    ainit[ainit < loA] <- loA[ainit < loA]
-  #    ainit[ainit > hiA] <- hiA[ainit > hiA]
       
       ainit[ainit < loA] <- (loA[ainit < loA] + hiA[ainit < loA])/2
       ainit[ainit > hiA] <- (loA[ainit > hiA] + hiA[ainit > hiA])/2
@@ -4969,12 +5016,13 @@ gjamSensitivity <- function(output, group=NULL, nsim=100, PERSPECIES = TRUE){
   
   reductList <- .setupReduct(modelList, S, Q, n) 
   
-  if(is.null(reductList)){
+  if( is.null(reductList) ){
     REDUCT <- FALSE
   }else{
     N <- reductList$N; r <- reductList$r
     REDUCT <- T
   }
+ # if( TIME )REDUCT <- FALSE
   
   if(byCol){
     inw <- intersect( colnames(y)[indexW], colnames(y)[notOther] )
@@ -5071,14 +5119,14 @@ gjamSensitivity <- function(output, group=NULL, nsim=100, PERSPECIES = TRUE){
     ss <- crossprod(Y)/n 
     sg[notOther,notOther] <- .cov2Cor(ss + diag(diag(ss)/2) )
     
-    if(REDUCT){
+    if( REDUCT ){
       sig <- sigmaerror
     }else{ 
       sig <- sg[notOther,notOther] 
     }
-    if(termB){
+    if( termB ){
       
-      bg[,notOther] <- updateBeta(X = x[tindex[,1],xnames], Y = Y[tindex[,1],notOther], 
+      bg[,notOther] <- updateBeta(X = x[drop=F,tindex[,1],xnames], Y = Y[tindex[,1],notOther], 
                                   sig = sig, beta = bg[,notOther], 
                                   PRIOR = BPRIOR,
                                   lo = loB[,notOther], hi = hiB[,notOther], 
@@ -5288,7 +5336,6 @@ gjamSensitivity <- function(output, group=NULL, nsim=100, PERSPECIES = TRUE){
     ff  <- factorBeta[names(factorBeta) != 'factorList']
     factorBeta <- append(ff,tmp)
   }
-  
   if( termR ){
     tmp <- .setupFactors(xdata, xlnames, factorRho)
     ff  <- factorRho[names(factorRho) != 'factorList']
@@ -5376,6 +5423,7 @@ gjamSensitivity <- function(output, group=NULL, nsim=100, PERSPECIES = TRUE){
   covx <- cov(x)
   
   ############ sums
+  xpred[,1] <- 1
   predx  <- predx2 <- xpred*0
   yerror <- ypred  <- ypred2 <- wpred  <- wpred2 <- ymissPred <- ymissPred2 <- y*0
   sumDev <- 0   #for DIC
@@ -5479,12 +5527,9 @@ gjamSensitivity <- function(output, group=NULL, nsim=100, PERSPECIES = TRUE){
   
   pbar <- txtProgressBar(min=1,max=ng,style=1)
   
-  # unstandardize
-  xf  <- NULL
-  if(length(facNames) > 0){
-    xf <- xdata[, facNames, drop=F]
-  }
-  tmp <- .getUnstandX(formula, x[,xnames, drop=F], xdata, standRows )
+  form <- formula
+  if( !is.null(formulaBeta) )form <- formulaBeta
+  tmp <- .getUnstandX(form, x[,xnames, drop=F], xdata, standRows )
   S2U      <- tmp$S2U                    # S2U%*%*bg
   xUnstand <- tmp$xu
   
@@ -5492,20 +5537,26 @@ gjamSensitivity <- function(output, group=NULL, nsim=100, PERSPECIES = TRUE){
   if( Q == 1 )PREDICTX <- FALSE
   
   if(TIME & termB){
-    tmp <- .getUnstandX(formula, x[,xnames, drop=F], xdata, standRowsB )
+    tmp <- .getUnstandX(formulaBeta, x[,xnames, drop=F], xdata, standRowsB )
     S2U <- tmp$S2U
   }
   
   if(termR){
     facNamesRho <- attr(Rmat, 'factors') 
-    xf  <- NULL
-    if(length(facNames) > 0){
-      xf <- xdata[, facNamesRho, drop=F]
-    }
+  #  xf  <- NULL
+  #  if(length(facNames) > 0){
+  #    xf <- xdata[, facNamesRho, drop=F]
+  #  }
     
     tmp <- .getUnstandX( formulaRho, xl, xdata, standRowsL )
     S2UL      <- tmp$S2U
     xlUnstand <- tmp$xu
+    missR <- which( is.na(xlUnstand), arr.ind=T )
+    missXR <- unique(missR[,1])
+    if(length(missR) > 0){
+      xlmu <- colMeans(xlUnstand, na.rm=T)
+      xlUnstand[missR] <- xlmu[ missR[,2] ]
+    }
   }
   
   if(REDUCT)rndTot <- rndTot2 <- w*0 
@@ -5532,14 +5583,14 @@ gjamSensitivity <- function(output, group=NULL, nsim=100, PERSPECIES = TRUE){
     if( REDUCT ){
       
       Y  <- w[,notOther]
-    
+      
       if(TIME){
         Y[tindex[,1],] <- w[tindex[,2],notOther] - w[tindex[,1],notOther]   # delta w here
         Y <- Y - mua[,notOther] - mug[,notOther] 
       }
       if(RANDOM)Y <- Y - groupRandEff[,notOther] 
       
-      tmp <- .param.fn(X = x[,xnames], beta = bg[,notOther], Y = Y, otherpar) 
+      tmp <- .param.fn(X = x[drop=F,,xnames], beta = bg[drop=F,,notOther], Y = Y, otherpar) 
       sg[notOther,notOther] <- tmp$sg
       otherpar              <- tmp$otherpar
       rndEff[inSamples,notOther] <- tmp$rndEff
@@ -5568,41 +5619,67 @@ gjamSensitivity <- function(output, group=NULL, nsim=100, PERSPECIES = TRUE){
         if(termR)mug  <- Vmat%*%Rmat
         
         Y[tindex[,1],] <- w[tindex[,2],notOther] - w[tindex[,1],notOther]   # delta w here
-        Y <- Y - mua[,notOther] - mug[,notOther] - rndEff[,notOther]
         
-        if(RANDOM)Y <- Y - groupRandEff[,notOther]
-        bg[,notOther] <- updateBeta(X = x[tindex[,1],xnames], Y = Y[tindex[,1],], 
-                                    sig = sigmaerror, beta = bg[,notOther],
-                                    PRIOR = BPRIOR,
-                                    rows = Brows, pattern = Bpattern,
-                                    lo=loB[,notOther], hi=hiB[,notOther],
-                                    wF = wB)
-        mub <- x[,xnames]%*%bg
-        Y[tindex[,1],] <- w[tindex[,2],notOther] - w[tindex[,1],notOther]   # delta w here
-        Y <- Y - mua[,notOther] - mub[,notOther] - rndEff[,notOther]
-        if(RANDOM)Y <- Y - groupRandEff[,notOther]
+        if( termB ){
+          
+          if( termR )Y <- Y - mug[,notOther] 
+          if( termA )Y <- Y - mua[,notOther] 
+          if(RANDOM) Y <- Y - groupRandEff[,notOther]
+          Y <- Y - rndEff[,notOther]
+          
+          bg[,notOther] <- updateBeta( X = x[drop=F, tindex[,1],xnames], Y = Y[tindex[,1],], 
+                                       sig = sigmaerror, beta = bg[,notOther],
+                                       PRIOR = BPRIOR,
+                                       rows = Brows, pattern = Bpattern,
+                                       lo=loB[,notOther], hi=hiB[,notOther],
+                                       wF = wB )
+          mub <- x[,xnames]%*%bg
+        }else{
+          mub <- 0
+        }
         
-        Rmat[,notOther] <- updateBeta(X = Vmat[tindex[,1],], 
-                                      Y = Y[tindex[,1],], sig=sigmaerror, 
-                                      beta = Rmat[,notOther], PRIOR = LPRIOR,
-                                      rows = Rrows, pattern = Rpattern, 
-                                      lo=loRmat, hi=hiRmat, wF = wL )
-        mug  <- Vmat%*%Rmat
-        Y[tindex[,1],] <- w[tindex[,2],notOther] - w[tindex[,1],notOther]   # delta w here
-        Y <- Y - mub[,notOther] - mug[,notOther] - rndEff[,notOther]
-        if(RANDOM)Y <- Y - groupRandEff[,notOther]
+        if( termR ){
+          
+          Y[tindex[,1],] <- w[tindex[,2],notOther] - w[tindex[,1],notOther]   # delta w here
+          if( termB )Y <- Y - mub[,notOther] 
+          if( termA )Y <- Y - mua[,notOther] 
+          if(RANDOM) Y <- Y - groupRandEff[,notOther]
+          Y <- Y - rndEff[,notOther]
+          
+          Rmat[,notOther] <- updateBeta( X = Vmat[tindex[,1],], 
+                                         Y = Y[tindex[,1],notOther], sig=sigmaerror, 
+                                         beta = Rmat[,notOther], PRIOR = LPRIOR,
+                                         rows = Rrows, pattern = Rpattern, 
+                                         lo = loRmat, hi = hiRmat, wF = wL )
+          mug  <- Vmat%*%Rmat
+        }else{
+          mug <- 0
+        }
         
-        Amat[,notOther] <- updateBeta(X = Umat[tindex[,1],], Y = Y[tindex[,1],], sig = sigmaerror, 
-                                      rows = Arows, pattern = Apattern, 
-                                      beta = Amat[,notOther], PRIOR = TRUE, 
-                                      lo = loAmat[,notOther], hi = hiAmat[,notOther], wF = wA )
-        mua <- Umat%*%Amat
+        if( termA ){
+          
+          Y[tindex[,1],] <- w[tindex[,2],notOther] - w[tindex[,1],notOther]   # delta w here
+          if( termB )Y <- Y - mub[,notOther] 
+          if( termR )Y <- Y - mug[,notOther] 
+          if(RANDOM) Y <- Y - groupRandEff[,notOther]
+          Y <- Y - rndEff[,notOther]         
+          
+          Amat[,notOther] <- updateBeta(X = Umat[tindex[,1],], Y = Y[tindex[,1],], sig = sigmaerror, 
+                                        rows = Arows, pattern = Apattern, 
+                                        beta = Amat[,notOther], PRIOR = TRUE, 
+                                        lo = loAmat[,notOther], hi = hiAmat[,notOther], wF = wA )
+          mua <- Umat%*%Amat
+        }else{
+          mua <- 0
+        }
         muw <- mub + mug + mua + rndEff
       }
       
-    } else {
-        
-     if( !TIME ){
+    } else { 
+      
+      # !REDUCT 
+      
+      if( !TIME ){
         
         Y <- w[inSamp,notOther]
         if(RANDOM)Y <- Y - groupRandEff[inSamp,notOther]
@@ -5610,14 +5687,16 @@ gjamSensitivity <- function(output, group=NULL, nsim=100, PERSPECIES = TRUE){
                                     beta = bg[,notOther], BPRIOR, lo=loB, hi=hiB)
         muw[inSamp,] <- x[inSamp,]%*%bg
         
-      }else{
+      }else{ 
+        
+        # !REDUCT & TIME
         
         muw <- mub <- mua <- mug <- w*0
         
-        if(termR)mug  <- Vmat%*%Rmat
-        if(termA)mua  <- Umat%*%Amat 
+        if( termR )mug  <- Vmat%*%Rmat
+        if( termA )mua  <- Umat%*%Amat 
         
-        if(termB){
+        if( termB ){
           
           Y   <- w[,notOther] 
           Y[tindex[,1],] <- w[tindex[,2],] - w[tindex[,1],notOther]
@@ -5625,7 +5704,7 @@ gjamSensitivity <- function(output, group=NULL, nsim=100, PERSPECIES = TRUE){
           if(termR) Y <- Y - mug[,notOther]
           if(RANDOM)Y <- Y - groupRandEff[,notOther]
           
-          bg[,notOther] <- updateBeta(X = x[tindex[,1],xnames], Y = Y[tindex[,1],notOther], 
+          bg[,notOther] <- updateBeta(X = x[drop=F, tindex[,1],xnames], Y = Y[tindex[,1],notOther], 
                                       sig = sg[notOther,notOther], beta = bg[,notOther],
                                       PRIOR = BPRIOR,
                                       rows = Brows, pattern = Bpattern,
@@ -5643,21 +5722,26 @@ gjamSensitivity <- function(output, group=NULL, nsim=100, PERSPECIES = TRUE){
           if(termB) Y <- Y - mub[,notOther]
           if(RANDOM)Y <- Y - groupRandEff[,notOther]
           
-          Rmat[,notOther] <- updateBeta(X = Vmat[tindex[,1],], Y = Y[tindex[,1],notOther], 
+          Rmat[,notOther] <- updateBeta(X = Vmat[tindex[,1],], Y = Y[tindex[,1],], 
                                         sig=sg[notOther,notOther], 
                                         beta = Rmat[,notOther],
                                         PRIOR = LPRIOR,
                                         rows = Rrows, pattern = Rpattern, 
                                         lo = loRmat, hi = hiRmat, sinv = sinv, wF = wL)
+          
+       #############   diag(Rmat) <- diag(rho)
+          
           mug[tindex[,1],] <- Vmat[tindex[,1],]%*%Rmat
           mug[timeLast,]   <- Vmat[drop=F, timeLast,]%*%Rmat
           muw <- muw + mug
         }
         
+        
+        
         if(termA){
           
           Y   <- w[,notOther] 
-          Y[tindex[,1],] <- Y[tindex[,2],] - w[tindex[,1],]
+          Y[tindex[,1],] <- Y[tindex[,2],] - w[tindex[,1],notOther]
           if(termR) Y <- Y - mug[,notOther] 
           if(termB) Y <- Y - mub[,notOther]
           if(RANDOM)Y <- Y - groupRandEff[,notOther]
@@ -5667,31 +5751,30 @@ gjamSensitivity <- function(output, group=NULL, nsim=100, PERSPECIES = TRUE){
                                         beta = Amat[,notOther], PRIOR = TRUE,
                                         lo=loAmat[,notOther], hi=hiAmat[,notOther], 
                                         rows = Arows, pattern = Apattern, sinv = sinv, wF = wA)
+          
+     #     Amat[wA] <- alpha[aindex]
+          
+          
+          
           mua[tindex[,1],] <- Umat[tindex[,1],]%*%Amat
           mua[timeLast,] <- Umat[drop=F, timeLast,]%*%Amat
           muw[,notOther] <- muw[,notOther] + mua[,notOther]
         }
-      }
-      
-  #    if( TIME | BPRIOR ){
-        
-      if( TIME ){
         
         Y    <- w
-        if(TIME){
-          Y[tindex[,1],] <- w[tindex[,2],] - w[tindex[,1],]
-          SS   <- crossprod(Y[tindex[,1],notOther] - muw[tindex[,1],notOther])
-        }else{
-          SS   <- crossprod(Y[inSamp,notOther] - muw[inSamp,notOther])
-        }
+        Y[tindex[,1],] <- w[tindex[,2],] - w[tindex[,1],]
+        SS   <- crossprod(Y[tindex[,1],notOther] - muw[tindex[,1],notOther])
         SI   <- solveRcpp(SS)
+      }
+      
+      
+      if( !TIME ){
         
-      }else{
+        # !REDUCT & !TIME, marginalize parameter matrix
         
-        # marginalize parameter matrix
         Y <- w[inSamp,notOther]
         if(RANDOM)Y <- Y - groupRandEff[inSamp,notOther]
-        XIXXX <- x[inSamp,]%*%solveRcpp( crossprod(x[inSamp,]) )%*%t(x[inSamp,] )
+        XIXXX <- x[drop=F, inSamp,]%*%solveRcpp( crossprod(x[drop=F, inSamp,]) )%*%t(x[drop=F, inSamp,] )
         XUV   <- t(Y)%*%XIXXX%*%Y
         YX    <- crossprod(Y) - XUV
         SI    <- solve( YX ) 
@@ -5761,7 +5844,7 @@ gjamSensitivity <- function(output, group=NULL, nsim=100, PERSPECIES = TRUE){
       groupRandEff <- t(alphaRandGroup)[groupIndex,]
     }
     
-    if(TIME){
+    if( TIME ){
       
       # muw does not include rndEff or groupRandEff
       tmp <- .updateW(w, plo, phi, wpropTime, xl, yp, Rmat, Amat, rndEff, groupRandEff,
@@ -5820,8 +5903,8 @@ gjamSensitivity <- function(output, group=NULL, nsim=100, PERSPECIES = TRUE){
         muNow <- muNew <- w*0 + rndEff
         
         if(termB){
-          muNow[,notOther]  <- muNow[,notOther] + xpred[,xnames,drop=F]%*%bg[,notOther,drop=F]
-          muNew[,notOther]  <- muNew[,notOther] + xtmp[,xnames,drop=F]%*%bg[,notOther,drop=F]
+          muNow[,notOther]  <- muNow[,notOther] + xpred[drop=F, , xnames]%*%bg[,notOther,drop=F]
+          muNew[,notOther]  <- muNew[,notOther] + xtmp[drop=F, , xnames]%*%bg[,notOther,drop=F]
         }
         if(termA){
           mua   <- Umat%*%Amat
@@ -5833,12 +5916,12 @@ gjamSensitivity <- function(output, group=NULL, nsim=100, PERSPECIES = TRUE){
           ww[ww < 0] <- 0
           Vnow <- Vnew <- Vmat
           Vnow[tindex[,1],]  <- ww[drop = FALSE,tindex[,1],gindex[,'colW']]*
-                                xpred[drop = FALSE,tindex[,1],xlnames][drop = FALSE,,gindex[,'rowG']]
+            xpred[drop = FALSE,tindex[,1],xlnames][drop = FALSE,,gindex[,'rowG']]
           mugNow <- Vnow%*%Rmat
           muNow[,notOther]  <- muNow[,notOther] + mugNow[,notOther]
           
           Vnew[tindex[,1],] <- ww[drop = FALSE,tindex[,1],gindex[,'colW']]*
-                               xtmp[drop = FALSE,tindex[,1],xlnames][drop = FALSE,,gindex[,'rowG']]
+            xtmp[drop = FALSE,tindex[,1],xlnames][drop = FALSE,,gindex[,'rowG']]
           mugNew <- Vnew%*%Rmat
           muNew[,notOther]  <- muNew[,notOther] + mugNew[,notOther]
         }
@@ -5857,30 +5940,30 @@ gjamSensitivity <- function(output, group=NULL, nsim=100, PERSPECIES = TRUE){
           pnew <- .dMVN(ww[,notOther],muNew[,notOther],smat=sg,log=T) 
           a1   <- exp(pnew - pnow)
         }
-        z    <- runif(length(a1),0,1)
+        z    <- runif( length(a1), 0, 1 )
         za   <- which(z < a1)
-        if(length(za) > 0){
+        if( length(za) > 0 ){
           xpred[za,] <- xtmp[za,]
         }
-        if(termR){
+        if( termR ){
           if(nlmiss > 0)xl[xlmiss] <- xpred[,colnames(xl)][xlmiss]
         }
-        if(nmiss > 0){
+        if( nmiss > 0 ){
           
           x[xmiss] <- xpred[xmiss]
           
-          xf  <- NULL
-          if(length(facNames) > 0){
-            xf <- xdata[, facNames, drop=F]
-          }
-          tmp    <- .getUnstandX(formula, x[,xnames], xdata, standRows )            
-          S2U    <- tmp$S2U
-          XX     <- crossprod(x)
-          IXX    <- solveRcpp(XX)
+     #     xf  <- NULL
+     #     if( length(facNames) > 0 ){
+     #       xf <- xdata[drop=F,, facNames]
+     #     }
+     #     tmp    <- .getUnstandX(formula, x[drop=F,,xnames], xdata, standRows )            
+     #     S2U    <- tmp$S2U
+     #     XX     <- crossprod(x)
+     #     IXX    <- solveRcpp(XX)
         }
       }
       
-    }else{ #############not TIME
+    }else{ ############# not TIME
       
       # ww <- x%*%bg + rmvnormRcpp(nrow(w), rep(0, S), sg)
       
@@ -5889,6 +5972,8 @@ gjamSensitivity <- function(output, group=NULL, nsim=100, PERSPECIES = TRUE){
                          sigmaerror, wHold )
       w     <- tmp$w
       yp    <- tmp$yp
+   #   plo   <- tmp$plo
+   #   phi   <- tmp$phi
       wHold <- tmp$wHold    #values for w if not held out
       
       Y <- w[,notOther]
@@ -5901,14 +5986,14 @@ gjamSensitivity <- function(output, group=NULL, nsim=100, PERSPECIES = TRUE){
                                 xbound=xbound)[xmiss]
         if( length(standRows) > 0 ){
           
-          xf  <- NULL
-          if(length(facNames) > 0){
-            xf <- xdata[, facNames, drop=F]
-          }
-          tmp    <- .getUnstandX( formula, x, xdata, standRows )            
-          S2U    <- tmp$S2U
-          XX     <- crossprod(x)
-          IXX    <- solveRcpp(XX)
+     #     xf  <- NULL
+     #     if(length(facNames) > 0){
+     #       xf <- xdata[, facNames, drop=F]
+     #     }
+     #     tmp    <- .getUnstandX( formula, x, xdata, standRows )            
+     #     S2U    <- tmp$S2U
+     #     XX     <- crossprod(x)
+     #     IXX    <- solveRcpp(XX)
         }
       }
       
@@ -5975,9 +6060,8 @@ gjamSensitivity <- function(output, group=NULL, nsim=100, PERSPECIES = TRUE){
     setTxtProgressBar(pbar,g)
     
     if(termR){
-      rho[ gindex[,c('rowG','colW')]] <- Rmat[wL]
+ #     rho[ gindex[,c('rowG','colW')] ] <- Rmat[wL]
       lgibbs[g,] <- Rmat[wL]       # standardized
-      rhoU <- Rmat
     }
     
     if(termA)alphaGibbs[g,] <- Amat[wA]
@@ -5987,7 +6071,7 @@ gjamSensitivity <- function(output, group=NULL, nsim=100, PERSPECIES = TRUE){
     # unstandardize if there are standardized columns; otherwise bgibbs is unstandardized
     
     if( length(standRows) > 0 ){           # for xUnstand
-      if(termB){
+      if( termB ){
         bgU <- S2U%*%bg
         bgibbsUn[g,] <- bgU[wB]
       }
@@ -5995,38 +6079,38 @@ gjamSensitivity <- function(output, group=NULL, nsim=100, PERSPECIES = TRUE){
     
     if( TIME ){
       
-      if(termR & length(standRowsL) > 0){
+      if( termR & length(standRowsL) > 0 ){
         
-        if(ncol(xl) > 1){
+        if( ncol(xl) > 1 ){
           
           Vunst <- Vmat
           wz    <- w
           wz[wz < 0] <- 0
-          vww  <- wz[drop = FALSE,tindex[,1],gindex[,'colW']]*
-                  xlUnstand[drop = FALSE,tindex[,1],xlnames][drop = FALSE,,gindex[,'rowG']]
-          Vunst[tindex[,1],] <- vww
+          Vunst[tindex[,1],]  <- wz[drop = FALSE,tindex[,1],gindex[,'colW']]*
+            xlUnstand[drop = FALSE,tindex[,1],xlnames][drop = FALSE,,gindex[,'rowG']]
           
           Y   <- w[,notOther] 
           Y[tindex[,1],] <- Y[tindex[,2],] - w[tindex[,1],]
           if(termA) Y <- Y - mua[,notOther] 
           if(termB) Y <- Y - mub[,notOther]
+          if(REDUCT)Y <- Y - rndEff[,notOther]
           if(RANDOM)Y <- Y - groupRandEff[,notOther]
           
           sig <- sigmaerror
-          if(!REDUCT) sig <- sg[notOther,notOther]
+          if( !REDUCT ) sig <- sg[notOther,notOther]
           
-          RmatU[,notOther] <- updateBeta(X = Vunst[tindex[,1],], 
-                                        Y = Y[tindex[,1],notOther], sig = sig, 
-                                        beta = RmatU[,notOther],
-                                        PRIOR = LPRIOR,
-                                        rows = Rrows, pattern = Rpattern, 
-                                        lo = loRmat, hi = hiRmat, sinv = sinv, wF = wL)
+          RmatU[,notOther] <- updateBeta( X = Vunst[tindex[,1],], 
+                                          Y = Y[tindex[,1],notOther], sig = sig, 
+                                          beta = RmatU[,notOther],
+                                          PRIOR = LPRIOR,
+                                          rows = Rrows, pattern = Rpattern, 
+                                          lo = loRmat, hi = hiRmat, sinv = sinv, wF = wL )
           
           lgibbsUn[g,] <- RmatU[wL]          # unstandardized
         }
       }
     }
-  
+    
     if( TRAITS ){
       Atrait <- bgU%*%t(specTrait[,colnames(yp)])  # unstandardized
       bTraitUnstGibbs[g,] <- Atrait
@@ -6080,7 +6164,6 @@ gjamSensitivity <- function(output, group=NULL, nsim=100, PERSPECIES = TRUE){
       ypred  <- ypred + yp
       ypred2 <- ypred2 + yp^2
       
- 
       wpr  <- matrix( colMeans( w[inSamp, notOther] ), length(inSamp), length(notOther),
                       byrow = T )
       tss  <- diag( crossprod( w[inSamp,notOther] - wpr ) ) # total
@@ -6220,9 +6303,10 @@ gjamSensitivity <- function(output, group=NULL, nsim=100, PERSPECIES = TRUE){
         tpred  <- tpred + Ttrait
         tpred2 <- tpred2 + Ttrait^2
       }
-    }
-  }       
-      
+    } 
+  
+        
+  }
   ################# end gibbs loop ####################
   
   
@@ -6230,7 +6314,7 @@ gjamSensitivity <- function(output, group=NULL, nsim=100, PERSPECIES = TRUE){
   #          reported on input scale in betaMu, bgibbsUn
   #          reported on standardized scale in betaStandXmu, bgibbs
   #          reported on standardized X, correlation Y in betaStandXWmu
-  #    S2U:  undstandardized beta is S2U%*%bg 
+  #    S2U:  unstandardized beta is S2U%*%bg 
   # if( length(standRows) > 0 ) then there are standardized variables to be 
   #                             unstandardized in bgibbsUn
   
@@ -6332,7 +6416,7 @@ gjamSensitivity <- function(output, group=NULL, nsim=100, PERSPECIES = TRUE){
     if(!is.null(loB)){
       blo <- as.vector( t(loB) )
       bhi <- as.vector( t(hiB) )
-      names(blo) <- names(bhi) <- bf
+   #   names(blo) <- names(bhi) <- bf
       bprior <- cbind(blo[rownames(betaStandXTable)],
                       bhi[rownames(betaStandXTable)])
       colnames(bprior) <- c('priorLo','priorHi')
@@ -6490,8 +6574,7 @@ gjamSensitivity <- function(output, group=NULL, nsim=100, PERSPECIES = TRUE){
   if(!TIME){
     
     muw <- x%*%beta[,notOther, drop=F]
-    tmp <- .dMVN(wMu[,notOther], muw,
-                 sMean[notOther,notOther], log=T)
+    tmp <- .dMVN(wMu[,notOther], muw, sMean[notOther,notOther], log=T)
     pd  <- meanDev - 2*sum(tmp )
     DIC <- pd + meanDev
   }
@@ -6555,12 +6638,12 @@ gjamSensitivity <- function(output, group=NULL, nsim=100, PERSPECIES = TRUE){
       
     if( ncol(x) > 1 ){  
       
-      xf  <- NULL
-      if(length(facNames) > 0){
-        xf <- xdata[, facNames, drop=F]
-      }
+   #   xf  <- NULL
+   #   if(length(facNames) > 0){
+   #     xf <- xdata[, facNames, drop=F]
+   #   }
       
-      xpredMu <- .getUnstandX(formula, x = xpredMu, xdata, xrow )$xu
+      xpredMu <- .getUnstandX(formula, xs = xpredMu, xdata, xrow )$xu
       xpredSd[,xrow] <- xpredSd[,xrow]*matrix( xsd[xrow], n, length(xrow), byrow=T ) 
     }
     if(Q == 2)xscore <- mean( .getScoreNorm(x[,2],
@@ -6759,13 +6842,14 @@ gjamSensitivity <- function(output, group=NULL, nsim=100, PERSPECIES = TRUE){
     nm  <- character(0)
     
     for(k in 1:length(nlist)){
-      vk <- get( nlist[k] )
-      if(is.null(vk))next
+      vk <- get( nlist[k] ) 
+      if( is.null(vk) )next
       attr( vk, 'description') <- words 
       out <- append( out, list(assign( nlist[k], vk )) )
       nm  <- c( nm, nlist[k])
     }
     names(out) <- nm
+  
     out
   }
   
@@ -6778,35 +6862,41 @@ gjamSensitivity <- function(output, group=NULL, nsim=100, PERSPECIES = TRUE){
     nlist <- c( 'ematrix', 'fmatrix' )
     words <- paste( parXS, parWS, parXF, sep=parSep)
     tlist <- getDescription( nlist, words )
-    for( k in 1:length(tlist) ) assign( names(tlist)[k], get( names(tlist[k]) ) )
-    
+    if(length(tlist) > 0){
+      for( k in 1:length(tlist) ) assign( names(tlist)[k], get( names(tlist[k]) ) )
+    }    
     parameters <- c(parameters, list(ematrix = ematrix, fmatrix = fmatrix, 
                                      sensBeta = sensBeta))
   }
   
   if(termB){
     
- #   attr(betaMu, 'description') <- attr(betaSe, 'description') <- 
- #     attr(betaTable, 'description') <- 
- #     attr(bgibbsUn, 'description') <- paste( parXU, parWU, sep=parSep)
-    
     nlist <- c('betaMu', 'betaSe', 'betaTable', 'bgibbsUn' )
     words <- paste( parXU, parWU, sep=parSep)
     tlist <- getDescription( nlist, words )
-    for( k in 1:length(tlist) ) assign( names(tlist)[k], get( names(tlist[k]) ) )
-    
+    if(length(tlist) > 0){
+      for( k in 1:length(tlist) ) assign( names(tlist)[k], get( names(tlist[k]) ) )
+    }    
     
     nlist <- c('betaStandXmu', 'betaStandXTable', 'bgibbs')
     words <- paste( parXU, parWU, sep=parSep )
     tlist <- getDescription( nlist, words )
-    for( k in 1:length(tlist) ) assign( names(tlist)[k], get( names(tlist[k]) ) )
+    if(length(tlist) > 0){
+      for( k in 1:length(tlist) ) assign( names(tlist)[k], get( names(tlist[k]) ) )
+    }
     
-    nlist <- c('betaStandXWmu', 'betaStandXWTable', 'sensTable', 'fSensGibbs',
-               'bFacGibbs' )
+    nlist <- c( 'betaStandXWmu', 'betaStandXWTable' )
+    if(!is.null(sensTable))nlist  <- c(nlist, 'sensTable')
+    if(!is.null(fSensGibbs))nlist <- c(nlist, 'fSensGibbs')
+    if(!is.null(bFacGibbs))nlist  <- c(nlist, 'bFacGibbs')
+    
+    
     words <- paste( parXS, parWS, parXF, sep = parSep)
     tlist <- getDescription( nlist, words )
-    for( k in 1:length(tlist) ) assign( names(tlist)[k], get( names(tlist[k]) ) )
     
+    if(length(tlist) > 0){
+      for( k in 1:length(tlist) ) assign( names(tlist)[k], get( names(tlist[k]) ) )
+    }
     
     attr(sensBeta, 'description') <- parXS
     
@@ -6895,7 +6985,7 @@ gjamSensitivity <- function(output, group=NULL, nsim=100, PERSPECIES = TRUE){
                            RmatStandXmu = RmatStandXmu, RmatStandXse = RmatStandXse,
                            rhoLo = loL, rhoHi = hiL, wL = wL))
       
-      if(ncol(xl) > 1){
+      if( ncol(xl) > 1 ){
         attr(ematrixL, 'description') <- attr(sensRho, 'description') <- parXS
         parameters <- c(parameters, 
                         list(ematrixL = ematrixL, sensRho = sensRho))
@@ -7220,7 +7310,7 @@ summary.gjam <- function(object,...){
   
   ty <- paste0( unique(types), collapse=", ")
   
-  words <- paste("Sample contains n = ", n, " observations on S = ",
+  words <- paste("The sample contains n = ", n, " observations on S = ",
                  S, " response variables.  Data types (typeNames) include ", ty,
                  ".", ef, oc, " There are ", nxmiss, 
                  " missing values in X and ", nymiss, 
@@ -7447,52 +7537,32 @@ sqrtSeq <- function(maxval, nbin = 10){ #labels for sqrt scale
   tx <- sqrtSeq( maxval = max(sxx, na.rm=T), nbin )
   ty <- sqrtSeq( maxval = max(syy, na.rm=T), nbin )
   
-  atx <- tx$at
-  lax <- tx$labs
+  xtick <- tx$at
+  xlab  <- tx$labs
   
-  xtick <- atx
-  xlab  <- lax
+  sig <- round( quantile(log10(xlab),.7) )
   
-  ix  <- findInterval(sxx, atx, all.inside = T)
-  ix  <- table(ix)
-  px  <- ix/sum(ix)
-  
-  # unbalanced
-  if( max(px) > .3 ){  
-    qx <- quantile(sxx[sxx != 0], seq(0, 1, length.out = nbin), na.rm=T )
-    ux <- unique(qx)
-    rx <- length(ux)/length(qx)
-    nb <- ceiling( nbin/rx )
-    qx <- quantile(sxx[sxx != 0], seq(0, 1, length.out = nb), na.rm=T )
-    atx <- unique(qx)
-    lax <- atx^2
-    sig <- round( quantile(log10(lax),.7) )
-    
-    lat <- round(lax, -sig)
-    wx  <- which( !duplicated(lat) )
-    
-    if( length(wx) < 4 ){
-      lat <- round(lax, -sig + 1)
-      atx <- sqrt(lat)
-    }
-    wx  <- which( !duplicated(lat) )
-    
-    if(length(wx) < 4){
-      lat <- round(lax, -sig - 1)
-      atx <- sqrt(lat)
-    }
-    wx  <- which( !duplicated(lat) )
-    atx <- atx[wx]
-    lax <- lat[wx]
+  labx  <- round(xlab, -sig + 1)
+  wd    <- which( !duplicated(labx) )
+  if( length(wd) < nbin ){
+    labx  <- round(xlab, -sig + 2)
+    wd    <- which( !duplicated(labx) )
   }
+  xlab  <- labx[wd]
+  xtick <- xtick[ wd ]
   
-  aty <- ty$at
+  sig <- round( quantile(log10(ty$labs),.7) )
+  laby  <- round(ty$labs, -sig + 1)
+  wd    <- which( !duplicated(laby) )
+  ylab  <- laby[wd]
+  ytick <- ty$at[ wd ]
   
-  if(length(atx) == 1)atx <- range(xtick)
   
-  list(xlim = range(tx$at, na.rm=T), ylim = range(aty, na.rm=T), 
-       atx = atx, labx = lax, xtick = atx, 
-       aty = aty, laby = ty$labs)
+  if(length(xtick) == 1)xtick <- range(xtick)
+  
+  list(xlim = range(tx$at, na.rm=T), ylim = range(ty$at, na.rm=T), 
+       atx = xtick, labx = xlab, xtick = xtick, 
+       aty = ytick, laby = ylab)
 }
 
 .shadeInterval <- function(xvalues,loHi,col='grey',PLOT  = TRUE, add  = TRUE,
@@ -7671,12 +7741,14 @@ rmOther <- function( x ){
   xnames <- colnames(x)
   snames <- colnames(y)
   names(typeNames) <- snames
-  
+
   if( !is.null(traitList) ){
     TRAITS <- T
     for(k in 1:length(traitList))assign( names(traitList)[k], traitList[[k]] )
   }
+  
   if( 'trueValues' %in% names(plotPars) ){
+    
     TV <- T
     for(k in 1:length(trueValues)){
       trueValues[[k]] <- rmOther( trueValues[[k]] )
@@ -7704,9 +7776,7 @@ rmOther <- function( x ){
   if(length(xpredMu) == 0)PREDICTX <- F
   if(!PREDICTX)PLOTX <- F
   
-  if(!is.null(random)){
-    RANDOM <- T
-  }
+  if(!is.null(random))RANDOM <- T
   
   oma <- c(0,0,0,0)
   mar <- c(4,4,2,1)
@@ -8234,7 +8304,7 @@ rmOther <- function( x ){
         sxx <- suppressWarnings( sqrt(y1[ww]) )
         syy <- suppressWarnings( sqrt(yp[ww]) )
         
-        opt  <- .getBinSqrt(y1, yp,  nbin = 8 )
+        opt  <- .getBinSqrt(y1, yp,  nbin = 12 )
         
         if( !typeNames[wk[1]] %in% c('PA','CAT') ){
           
@@ -8384,7 +8454,6 @@ rmOther <- function( x ){
         knames <- c(paste(gname,'Ref',sep=''),fnames)
         if(TIME){
           xtrue     <- x[iy,fnames,drop=F]
-          
         }else{
           xtrue <- xUnstand[iy,fnames,drop=F]
         }
@@ -8419,7 +8488,9 @@ rmOther <- function( x ){
 
         mc <- c(mmat[1], 1 - mmat[1])
         mmat <- cbind(rev(mc),mc)
-        rownames(mmat) <- colnames(mmat) <- factorBeta$facList2[[1]]
+        fmname <- factorBeta$facList2
+        if( length(fmname) == 0 )fmname <- factorRho$facList2
+        rownames(mmat) <- colnames(mmat) <- fmname[[1]]
       }
       
       graphics.off()
@@ -8449,6 +8520,8 @@ rmOther <- function( x ){
     noplot <- c(1,grep(':',xnames),grep('^2',xnames,fixed=T))
     vnames <- xnames[-noplot]
     vnames <- vnames[!vnames %in% noX]
+    
+    vnames <- vnames[ vnames %in% colnames(xUnstand) ]
     
     if( length(vnames) > 0 ){
       
@@ -8603,7 +8676,7 @@ rmOther <- function( x ){
         sxx <- sqrt(y1)
         syy <- sqrt(yp)
 
-        opt  <- .getBinSqrt(y1, yp, nbin = 10 )
+        opt  <- .getBinSqrt(y1, yp, nbin = 12 )
         
         if( !typeNames[wk[1]] %in% c('PA','CAT') ){
           
@@ -8778,7 +8851,7 @@ rmOther <- function( x ){
       }
     }
     
-    if( ncol(fSensGibbs) > 1){
+    if( ncol(fSensGibbs) > 1 ){
       
       wc <- c(1:ncol(fSensGibbs))
       wx <- grep(':',colnames(fSensGibbs))
@@ -8813,7 +8886,8 @@ rmOther <- function( x ){
         }
         
         par(mfrow=c(1,1),bty='n', oma=oma, mar=mar, tcl= tcl, mgp=mgp)
-        if(TIME)par(mfrow=c(1,2),bty='n', oma=oma, mar=mar, tcl= tcl, mgp=mgp)
+        
+     #   if(TIME)par(mfrow=c(1,2),bty='n', oma=oma, mar=mar, tcl= tcl, mgp=mgp)
         
         ord  <- order( colMeans(xx) )
         ylim <- c( quantile(xx,.002), 5*quantile(xx,.99))
@@ -8840,17 +8914,17 @@ rmOther <- function( x ){
   
   ######################  beta summary tables ############
   
-  if(termB){
+  if( termB ){
     
     fnames <- rownames(factorBeta$eCont)
     
     tmp <- .splitNames(colnames(bgibbs),snames=colnames(y))
     vnames <- unique(tmp$vnam)
     xnam <- unique(tmp$xnam[tmp$xnam != 'intercept'])
-    
-    if(SAVEPLOTS)pdf( file=.outFile(outFolder,'betaChains.pdf') ) # start plot
-    
-    if(CHAINS & termB & length(xnam) > 0){
+  
+    if( CHAINS & termB & length(xnam) > 0 ){
+      
+      if(SAVEPLOTS)pdf( file=.outFile(outFolder,'betaChains.pdf') ) # start plot
       
       cseq <- 1:nrow(bgibbs)
       if(length(cseq) > 1000)cseq <- seq(1,length(cseq),length=1000)
@@ -8914,7 +8988,7 @@ rmOther <- function( x ){
   
   ######################### correlation chains, species at random
   
-  if(CHAINS){
+  if( CHAINS ){
     
     if(SAVEPLOTS)pdf( file=.outFile(outFolder,'corChains.pdf') ) # start plot
     
@@ -8988,9 +9062,9 @@ rmOther <- function( x ){
   
     ##################### time chains
   
-  if(TIME & CHAINS){
+  if( TIME & CHAINS ){
     
-    if(termR){
+    if( termR ){
       
       cseq <- 1:nrow(lgibbs)
       if(nrow(lgibbs) > 1000)cseq <- seq(1,length(cseq),length=1000)
@@ -9053,7 +9127,7 @@ rmOther <- function( x ){
       }
     }
     
-    if(termA){
+    if( termA ){
       
       if(SAVEPLOTS)pdf( file=.outFile(outFolder,'alphaChains.pdf') ) 
       
@@ -9097,7 +9171,7 @@ rmOther <- function( x ){
                                         col=cols[j],pos=4)
             
             if(k == 1 & j == 1).plotLabel( paste(burnin,":",ng),
-                                           location='topright' )         }
+                                           location='bottomright' )         }
           abline(h=0,lwd=4,col='white')
           abline(h=0,lty=2)
           
@@ -9118,84 +9192,82 @@ rmOther <- function( x ){
   
   ############################### beta posteriors as boxes
   
-  if(termB){
+  if( termB & length(bFacGibbs) > 0 ){
     
     bfSig <- bFacGibbs
     
-    if(length(bfSig) > 0){
+    tmp <- .splitNames(colnames(bfSig), snames)
+    vnam <- tmp$vnam
+    xnam <- tmp$xnam
+    
+    fnames  <- unique( xnam )
+    xpNames <- .replaceString(fnames,':','X')
+    xpNames <- .replaceString(xpNames,'I(','')
+    xpNames <- .replaceString(xpNames,')','')
+    xpNames <- .replaceString(xpNames,'^2','2')
+    xpNames <- .replaceString(xpNames,'*','TIMES')
+    brange  <- apply(bfSig,2,range)
+    
+    for(j in 1:length(fnames)){
       
-      tmp <- .splitNames(colnames(bfSig), snames)
-      vnam <- tmp$vnam
-      xnam <- tmp$xnam
+      wc <- which(xnam == fnames[j] & brange[2,] > brange[1,])
+      if(length(wc) < 2)next
       
-      fnames  <- unique( xnam )
-      xpNames <- .replaceString(fnames,':','X')
-      xpNames <- .replaceString(xpNames,'I(','')
-      xpNames <- .replaceString(xpNames,')','')
-      xpNames <- .replaceString(xpNames,'^2','2')
-      xpNames <- .replaceString(xpNames,'*','TIMES')
-      brange  <- apply(bfSig,2,range)
+      plab <- paste('beta_',xpNames[j],'.pdf',sep='')
+      if(SAVEPLOTS)pdf( file=.outFile(outFolder,plab) ) # start plot
       
-      for(j in 1:length(fnames)){
-        
-        wc <- which(xnam == fnames[j] & brange[2,] > brange[1,])
-        if(length(wc) < 2)next
-        
-        plab <- paste('beta_',xpNames[j],'.pdf',sep='')
-        if(SAVEPLOTS)pdf( file=.outFile(outFolder,plab) ) # start plot
-        
-        par(mfrow=c(1,1),bty='n', oma=oma, mar=mar, tcl= tcl, mgp=mgp)
-        
-        .myBoxPlot( mat = bfSig[,wc], tnam = vnam[ wc ], snames = snames,
-                    specColor, label=fnames[j], LEG=F)
-        mtext(side=2,'Coefficient', line=2)
-        
-        if( !is.null(names(specColor)) ){
-          lf <- sort( unique(names(specColor)) )
-          cc <- specColor[lf]
-          legend('bottomright',names(cc), text.col = cc, bty='n')
-        }
-        
-        if(!SAVEPLOTS){
-          readline('beta standardized for W/X, 95% posterior -- return to continue ')
-        } else {
-          dev.off()
-        }
+      par(mfrow=c(1,1),bty='n', oma=oma, mar=mar, tcl= tcl, mgp=mgp)
+      
+      .myBoxPlot( mat = bfSig[,wc], tnam = vnam[ wc ], snames = snames,
+                  specColor, label=fnames[j], LEG=F)
+      mtext(side=2,'Coefficient', line=2)
+      
+      if( !is.null(names(specColor)) ){
+        lf <- sort( unique(names(specColor)) )
+        cc <- specColor[lf]
+        legend('bottomright',names(cc), text.col = cc, bty='n')
       }
       
-      #one figure
-      
-      if(length(fnames) > 1){
-        
-        if(SAVEPLOTS)pdf( file=.outFile(outFolder,'betaAll.pdf') )  
-        
-        npp <- length(which(table(match(xnam,fnames)) > 1))
-        
-        mfrow <- .getPlotLayout(npp)
-        par( mfrow=mfrow, bty='n', omi=c(.3,.5,0,0), 
-             mar=c(1,1,1,1), tcl= tcl )
-        
-        k <- 0
-        for(j in 1:length(fnames)){
-          
-          wc <- which(xnam == fnames[j])
-          if(length(wc) < 2)next
-          
-          k <- k + 1
-          
-          .myBoxPlot( mat = bfSig[,wc], tnam = vnam[ wc ], snames = snames,
-                      specColor, label=' ', LEG=F)
-          .plotLabel(fnames[j],'topleft')
-        }
-        mtext(side=2,'Coefficient value',outer=T, line=1)
-        
-        if(!SAVEPLOTS){
-          readline('95% posterior -- return to continue ')
-        } else {
-          dev.off()
-        }
+      if(!SAVEPLOTS){
+        readline('beta standardized for W/X, 95% posterior -- return to continue ')
+      } else {
+        dev.off()
       }
     }
+    
+    #one figure
+    
+    if(length(fnames) > 1){
+      
+      if(SAVEPLOTS)pdf( file=.outFile(outFolder,'betaAll.pdf') )  
+      
+      npp <- length(which(table(match(xnam,fnames)) > 1))
+      
+      mfrow <- .getPlotLayout(npp)
+      par( mfrow=mfrow, bty='n', omi=c(.3,.5,0,0), 
+           mar=c(1,1,1,1), tcl= tcl )
+      
+      k <- 0
+      for(j in 1:length(fnames)){
+        
+        wc <- which(xnam == fnames[j])
+        if(length(wc) < 2)next
+        
+        k <- k + 1
+        
+        .myBoxPlot( mat = bfSig[,wc], tnam = vnam[ wc ], snames = snames,
+                    specColor, label=' ', LEG=F)
+        .plotLabel(fnames[j],'topleft')
+      }
+      mtext(side=2,'Coefficient value',outer=T, line=1)
+      
+      if(!SAVEPLOTS){
+        readline('95% posterior -- return to continue ')
+      } else {
+        dev.off()
+      }
+    }
+    
   }
   
   ############################## time #######################
@@ -9340,7 +9412,7 @@ rmOther <- function( x ){
   
   ########### dimension reduction ############
   
-  if(REDUCT){ 
+  if( REDUCT ){ 
     
     graphics.off()
     
@@ -9389,26 +9461,28 @@ rmOther <- function( x ){
     names(acol) <- c('movement','DI growth','DD growth')
     scol   <- character(0)
     
-    if('sensBeta' %in% names(parameters)){
-      sensMu <- cbind(sensMu, sensBeta[,1])
-      sensSe <- cbind(sensSe, sensBeta[,1])
-      colnames(sensMu)[ncol(sensMu)] <- colnames(sensSe)[ncol(sensMu)] <- 'beta'
-      scol <- c(scol, acol[1])
+    if( 'sensBeta' %in% names(parameters) ){
+      if( var( sensBeta[,1]) != 0 ){
+        sensMu <- cbind(sensMu, sensBeta[,1])
+        sensSe <- cbind(sensSe, sensBeta[,1])
+        colnames(sensMu)[ncol(sensMu)] <- colnames(sensSe)[ncol(sensMu)] <- 'beta'
+        scol <- c(scol, acol[1])
+      }
     }
-    if('sensRho' %in% names(parameters)){
+    if( 'sensRho' %in% names(parameters) ){
       sensMu <- cbind(sensMu, sensRho[,1])
       sensSe <- cbind(sensSe, sensRho[,1])
       colnames(sensMu)[ncol(sensMu)] <- colnames(sensSe)[ncol(sensMu)] <- 'rho'
       scol <- c(scol, acol[2])
     }
-    if('sensAlpha' %in% names(parameters)){
+    if( 'sensAlpha' %in% names(parameters) ){
       sensMu <- cbind(sensMu, sensAlpha[,1])
       sensSe <- cbind(sensSe, sensAlpha[,1])
       colnames(sensMu)[ncol(sensMu)] <- colnames(sensSe)[ncol(sensMu)] <- 'alpha'
       scol <- c(scol, acol[3])
     }
     
-    if(length(sensMu) > 0){
+    if( length(sensMu) > 0 ){
       
       osens <- order( colMeans(sensMu), decreasing=T )
       
@@ -9431,8 +9505,6 @@ rmOther <- function( x ){
       mfrow <- c(1,1)
       if(nc > 1)mfrow <- c(2,1)
       par( mfrow = mfrow, bty = 'n', mar = c(3,4,1,2) )
-      
-    #  scol <- colF(ncol(sensMu))
       
       if(nc > 1){
         #proportion of total
@@ -9460,7 +9532,8 @@ rmOther <- function( x ){
       }
       if(nc == 1)text( tmp[1,], 1.05*apply(smu + sse, 2, max), colnames(smu), srt = 75, pos = 4,
                        cex = .9)
-      legend('topright', names(scol), text.col = scol, bty='n')
+      legend('topright', legend = names(scol), text.col = scol, bty='n')
+      
       
       if(!SAVEPLOTS){
         readline('contributions to dynamics -- return to continue ')
@@ -9469,7 +9542,7 @@ rmOther <- function( x ){
       }
     }
     
-    if( !is.null(alphaEigen)){#eigenvalues
+    if( !is.null(alphaEigen) ){ # eigenvalues
       
       graphics.off()
       
@@ -10117,6 +10190,8 @@ toConsole <- function( message, object = NULL, verbose = T ){
     
     if(PLOT){
       
+      y2plot <- .cleanNames(y2plot)
+      
       y1 <- output$inputs$y
       y2 <- output$prediction$ypredMu
       if(!is.null(y2plot)){
@@ -10144,6 +10219,8 @@ toConsole <- function( message, object = NULL, verbose = T ){
     return(  list( ypredMu = output$modelSummary$ypredMu, 
                    ypredSe = output$modelSummary$ypredSd ) )
   }
+  
+  if( is.data.frame(newdata) )stop('newdata is a data.frame, must be a named list')
   
   xdata   <- xnew   <- ydataCond <- interBeta <- groupRandEff <- NULL
   tiny    <- 1e-10
@@ -10184,8 +10261,8 @@ toConsole <- function( message, object = NULL, verbose = T ){
   notStandard <- output$modelList$notStandard
   
   nsim <- 500
-  if( 'nsim' %in% names(newdata))nsim <- newdata$nsim
-  if( 'xdata' %in% names(newdata))NEWX <- T
+  if( 'nsim' %in% names(newdata) )nsim <- newdata$nsim
+  if( 'xdata' %in% names(newdata) )NEWX <- T
   if( 'effort' %in% names(newdata))effort <- newdata$effort
   if( 'ydataCond' %in% names(newdata))COND <- T
   if( 'xdata' %in% names(newdata) & 'ydataCond' %in% names(newdata) )XCOND <- T
@@ -10238,10 +10315,11 @@ toConsole <- function( message, object = NULL, verbose = T ){
   standX     <- output$inputs$standX
   
   ig <- grep(':', names(standRows))
-  if(length(ig) > 0){
-    standRows <- standRows[-ig]
-    standX <- standX[ -ig, ]
-  }
+  if(length(ig) > 0)standRows <- standRows[-ig]
+  
+  ig <- grep(':', rownames(standX))
+  if(length(ig) > 0)standX <- standX[ -ig, ]
+  
   
   #factors are not standardized
   if(length(factorList) > 0){
@@ -10266,13 +10344,14 @@ toConsole <- function( message, object = NULL, verbose = T ){
     nx   <- n <- nrow(xnew)
     colnames(xnew) <- .cleanNames(colnames(xnew))
     
-    wna <- which(is.na(xnew),arr.ind=T)
-    if(length(wna) > 0)
-      stop('cannot have NA in prediction grid newdata$xdata')
+ #   wna <- which(is.na(xnew),arr.ind=T)
+ #   if(length(wna) > 0)
+ #     stop('cannot have NA in prediction grid newdata$xdata')
     
     if( 'effort' %in% names(newdata) ){
       effort <- buildFullEffort( ynames, newdata$effort$columns, newdata$effort$values)
       effortSource <- 'newdata'
+      toConsole( 'effort taken from newdata', verbose )
     }else{
       effort <- buildFullEffort( ynames, 1:S, rep(1, nx) )
       effortSource <- 'none'
@@ -10289,12 +10368,15 @@ toConsole <- function( message, object = NULL, verbose = T ){
     
     if( NEWX ){
       
-      rname      <- output$modelList$random
-      groupIndex <- xnew[,rname]
-      groupIndexNew <- which(!groupIndex %in% output$parameters$groupIndex)
+      # random groups, not all may be fitted
+      rname      <- output$modelList$random       
+      randGroupName <- as.character( xnew[,rname] )
+      groupIndexNew <- which( !randGroupName %in% colnames(randByGroupMu) )
+      groupIndex <- match( randGroupName, colnames(randByGroupMu) )
+      
       newGroups <- NULL
       
-      if(length(groupIndexNew) > 0){
+      if( length(groupIndexNew) > 0 ){
         
         newGroups <- unique( groupIndex[groupIndexNew] )
         ngroupNew <- length(newGroups)
@@ -10323,15 +10405,16 @@ toConsole <- function( message, object = NULL, verbose = T ){
       if(length(ww) > 0)for(k in ww){ xnew[,fnow[k]] <- as.factor( xnew[,fnow[k]] ) }
       
       if( identical( output$inputs$xdata, xnew ) ){
-        SAMEX <- T  # predict with random effects
+        SAMEX <- T                                       # predict with random effects
         toConsole( 'Predict same X', verbose = verbose )
       }else{
-        toConsole( 'Predict different X, marginalize fitted random effects', verbose = verbose )
+        toConsole( 'Predict different X', verbose = verbose )
       }
       
     }else{   # if !SAMEX, marginalize random effects variance from dimension reduction
       groupIndex <- output$parameters$groupIndex
     }
+    if(is.null(newGroups))toConsole( 'Use fitted random effects', verbose = verbose )
   }
   
   if( !NEWX & RANDOM )SAMEX <- T                             
@@ -10376,6 +10459,7 @@ toConsole <- function( message, object = NULL, verbose = T ){
                       xsd = xsd, verbose = verbose )
     xnew <- tmp$xdataStand
     u2s  <- tmp$U2S
+    if( !attr(u2s,'valid') )toConsole( 'Could not solve for unstandardized u2s for xnew', verbose = verbose )
     
     tmp <- .gjamXY(formula, xnew, yp, typeNames, 
                    notStandard = names(xnew), checkX = F, xscale = xscale,
@@ -10383,6 +10467,7 @@ toConsole <- function( message, object = NULL, verbose = T ){
     x    <- tmp$x                       # standardized with original mean/var
     
     beta <- output$parameters$betaStandXmu
+    beta[ is.na(beta) ] <- 0
     if( is.null(beta) ){
       beta <- output$parameters$betaMu
       STAND <- FALSE
@@ -10538,7 +10623,6 @@ toConsole <- function( message, object = NULL, verbose = T ){
   
   # partition out-of-sample based on max ever obs for species
   pmax <- apply(output$inputs$y/output$modelList$effort$values,2,max) 
-
   
   CCsums <- CCmax <- numeric(0)
   if( !is.null(CCgroups) ){
@@ -10675,11 +10759,18 @@ toConsole <- function( message, object = NULL, verbose = T ){
   tiny  <- 1e-5
   sampW <- 1 + w*0
   rows  <- 1:nrow(w)
+  bg    <- output$parameters$betaStandXmu*0
   
+  chainNames <- colnames( output$chains$bgibbs )
+  dimnames   <- dimnames(bg)
+  
+  tt <- .multivarChainNames2matrix( chainNames, dimnames )
+  bg <- tt$beta
+  wB <- tt$wB
   
   for(g in gvals){ 
     
-    bg  <- matrix( output$chains$bgibbs[g,], Q, S )  # standardized
+    bg[wB] <- output$chains$bgibbs[g,]  # standardized
     muw <- x%*%bg                                 
     
     if( REDUCT ){
@@ -10709,11 +10800,11 @@ toConsole <- function( message, object = NULL, verbose = T ){
         randByGroup <- rnorm( length(randByGroupMu), randByGroupMu, randByGroupSe )
         randByGroup <- t( matrix( randByGroup, S, ngroup ) )
         rownames(randByGroup) <- colnames(randByGroupMu)
-        groupRandEff <- randByGroup[as.character(groupIndex),]
+        groupRandEff <- randByGroup[groupIndex,]
       if( !is.null(newGroups) ){
         avg[ wrand ] <- rnorm(nrow(wrand), avm[wrand], avs[wrand])
         avg[ wrand[,c(2,1)] ] <- avg[ wrand ]
-        groupRandEff[ groupIndexNew, ] <- .rMVN(length(groupIndexNew), 0, avg)   
+        groupRandEff[ groupIndexNew, ] <- rmvnormRcpp(length(groupIndexNew), 0, avg)   
       }
     }
     
@@ -11071,7 +11162,7 @@ toConsole <- function( message, object = NULL, verbose = T ){
       if(length(Mk) == 1){
         B[pk,krow] <- rnorm(length(pk),muk,sqrt(Mk))
       }else{
-        B[pk,krow] <- .rMVN( length(pk), rep(0,length(krow)), Mk) + muk
+        B[pk,krow] <- rmvnormRcpp( length(pk), rep(0,length(krow)), Mk) + muk
       }
     } else { 
       if(length(Mk) == 1){
@@ -12063,6 +12154,22 @@ toConsole <- function( message, object = NULL, verbose = T ){
   as.vector( tmat )
 }
 
+
+.multivarChainNames2matrix <- function( chainNames, dimnames ){
+  
+  ss   <- columnSplit( chainNames, '_' )
+  tmat <- matrix(0, length(dimnames[[1]]), 
+                 length(dimnames[[2]]), dimnames = dimnames )
+  
+  wr <- match( ss[,2], dimnames[[1]] )
+  wc <- match( ss[,1], dimnames[[2]] )
+  wB <- cbind( wr, wc )
+  
+  tmat[ wB ] <- 1
+
+  list( beta = tmat, wB = wB)
+}
+
 .rMVN <- function (nn, mu, sigma = NULL, sinv = NULL){
   
   # nn - no. samples from one mu vector or nrow(mu) for matrix
@@ -12878,8 +12985,8 @@ toConsole <- function( message, object = NULL, verbose = T ){
     SS[sc,sc] <- SS[sc,sc]*.0001^2
   }
   
-  RR    <- .rMVN(S+5,0,SS) 
-  RR    <- cov( .rMVN(S+5,0,sig) )
+#  RR    <- rmvnormRcpp(S+5, 0, SS) 
+  RR    <- cov( .rMVN(S+5, 0, sig) )
   sigma <- .rwish(S+2,RR)/(S + 2)
   
   ####################################3
@@ -12900,7 +13007,7 @@ toConsole <- function( message, object = NULL, verbose = T ){
   mu <- w <- matrix(0,n,S)
   
   mu[,notOther] <- x%*%beta[,notOther,drop=F]
-  w[,notOther]  <- mu[,notOther] + .rMVN(n,0,sigma[notOther,notOther]) 
+  w[,notOther]  <- mu[,notOther] + rmvnormRcpp(n, rep(0, length(notOther)),sigma[notOther,notOther]) 
   colnames(w) <- snames
   
   y  <- w
@@ -13000,7 +13107,7 @@ toConsole <- function( message, object = NULL, verbose = T ){
             
             bc[,wki]  <- solveRcpp(crossprod(x))%*%crossprod(x,ww)
             wmu       <- x%*%bc
-            ww  <- wmu[,wki] + .rMVN(n,0,sigma)[,wki]
+            ww  <- wmu[,wki] + rmvnormRcpp(n, rep(0, nrow(sigma)), sigma)[,wki]
             if( typeFull[wk[1]] %in% c('countComp','fracComp') ){
               zk <- ww
               w0 <- which( zk < 0 )
@@ -13012,7 +13119,7 @@ toConsole <- function( message, object = NULL, verbose = T ){
             wmu       <- x%*%bc
             sigma[wki,wki] <- var(ww - wmu[,wki])
           }
-          ww  <- wmu[,wki] + .rMVN(n,0,sigma)[,wki]
+          ww  <- wmu[,wki] + rmvnormRcpp(n, rep(0, nrow(sigma)), sigma)[,wki]
           yk  <- .gjamCompW2Y(ww,notOther=noto)$ww
           ww[ yk > 0 ] <- yk[ yk > 0 ]
           
@@ -13281,27 +13388,26 @@ toConsole <- function( message, object = NULL, verbose = T ){
   
   # Y includes all terms but X%*%beta
 
-  p    <- ncol(X)
-  S    <- ncol(Y)
-  nn   <- length(inSamples)
-  
-  covR <- solveRcpp( (1/sigmaerror)*crossprod(Z[K,]) + diag(r) ) # Sigma_W
-  z1   <- crossprod( Z[K,]/sigmaerror,t(Y[inSamples,] - X[inSamples,]%*%t(B)) )        
-  RR   <- rmvnormRcpp(nn, mu = rep(0,r), sigma = covR ) + t(crossprod( covR,z1))
+  p      <- ncol(X)
+  S      <- ncol(Y)
+  nn     <- length(inSamples)
+  YXB    <- Y[inSamples,] - X[inSamples,]%*%t(B)
+  covR   <- solveRcpp( (1/sigmaerror)*crossprod(Z[K,]) + diag(r) ) # Sigma_W
+  z1     <- crossprod( Z[K,]/sigmaerror,t( YXB ) )        
+  RR     <- rmvnormRcpp(nn, mu = rep(0,r), sigma = covR ) + t(crossprod( covR,z1))
   rndEff <- RR%*%t(Z[K,])
   
-  res        <- sum((Y[inSamples,] - X[inSamples,]%*%t(B) - rndEff )^2)
-  sigmaerror <- 1/rgamma(1,shape=(S*nn + 1)/2, rate=res/2)  
+  res        <- sum(( YXB - rndEff )^2)
+  sigmaerror <- 1/rgamma( 1, shape=(S*nn + 1)/2, rate=res/2 )  
   
   avec <- 1/rgamma(r, shape = ( 2 + r )/2, 
                    rate = ((1/1000000) + 2*diag(solveRcpp(D)) ) )  
   
   D    <- .riwish(df = (2 + r + N - 1), S = (crossprod(Z) + 2*2*diag(1/avec)))
-  Z    <- fnZRcpp(kk=K, Yk=Y[inSamples,], Xk=X[inSamples,], Dk=D, Bk=B, 
+  Z    <- fnZRcpp(kk=K, Yk=Y[inSamples,], Xk=X[drop=F,inSamples,], Dk=D, Bk=B, 
                   Wk=RR, sigmasqk=sigmaerror, Nz=N)
-  
   pmat <- getPmatKRcpp(pveck = pvec,Yk = Y[inSamples,], Zk = Z,
-                       Xk = X[inSamples,], Bk = B, Wk = RR,
+                       Xk = X[drop=F,inSamples,], Bk = B, Wk = RR,
                        sigmasqk = sigmaerror)
   K    <- unlist( apply(pmat, 1, function(px)sample(1:N, size=1, prob=px)) )
   pvec <- .sampleP(N = N, avec = rep(alpha.DP/N,(N-1)),
@@ -13882,10 +13988,9 @@ toConsole <- function( message, object = NULL, verbose = T ){
   
   if(REDUCT){
     
-    function(X, Y, sig, beta, PRIOR, lo, hi, rows=NULL, pattern=NULL, ...){
+    function(X, Y, sig, beta, PRIOR, lo, hi, wF = NULL, rows=NULL, pattern=NULL, ...){
       
-      SS   <- ncol(Y)
-      
+      S  <- ncol(Y)
       w0 <- which(colSums(X) == 0)
       if(length(w0) > 0){
         X <- X[,-w0]
@@ -13893,10 +13998,8 @@ toConsole <- function( message, object = NULL, verbose = T ){
         rows[rows %in% w0] <- NA
       }
       
-      tiny <- 1e-5
       XX   <- crossprod(X)
-      diag(XX) <- diag(XX)*(1 + tiny)          ## ridge here
-      IXX   <- try( solveRcpp(XX), T )
+      IXX  <- try( solveRcpp(XX), T )
       if( inherits(IXX,'try-error') ){
         diag(XX) <- diag(XX) + 1.001*diag(XX)
         IXX <- solveRcpp(XX)
@@ -13907,7 +14010,7 @@ toConsole <- function( message, object = NULL, verbose = T ){
       
       if( !PRIOR ){
         
-        B   <- rmvnormRcpp( SS, rep(0,nrow(omega)), omega) + muB
+        B   <- rmvnormRcpp( S, rep(0,nrow(omega)), omega) + muB
         
         ws <- which(abs(B) > betaLim, arr.ind=T)
         
@@ -13929,50 +14032,34 @@ toConsole <- function( message, object = NULL, verbose = T ){
         return( t(tmp) )
       }
       
-      B  <- t(beta)
-      QX <- ncol(X)
+      B    <- beta                             # REDUCT & TIME
+      muB  <- t(muB)
+      sinv <- XX/sig
+      QX   <- ncol(sinv)
       
-      for(k in 1:nrow(pattern)){
+      for( k in pattern ){             # responses independent
         
-        krow <- rows[k,]
-        krow <- krow[is.finite(krow)]
-        notk <- c(1:QX)[-krow]
-        if(length(notk) == 1){
-          M1 <- omega[krow,notk, drop=F]/omega[notk,notk]
-        }else{
-         
-          OI <- try( solveRcpp(omega[notk,notk]), T)
-          if( inherits(OI,'try-error') ){
-            OI <- diag(1/diag(omega[notk,notk]))
-          }
-          M1 <- omega[krow,notk, drop=F]%*%OI
-        }
-        pk  <- pattern[k,]
-        pk  <- pk[is.finite(pk)]
-        muk <- muB[pk, krow, drop=F] - muB[pk,notk]%*%t(M1)
-        Mk  <- omega[krow,krow] - M1%*%omega[notk,krow]
+        wk <- wF[ drop=F, wF[,2] == k, ]       # locations in beta affect y[,k]
+        if(length(wk) == 0)next
         
-        if(length(Mk) == 1){
-          
-          
-          B[pk,krow] <- .tnorm(length(pk),lo[krow,pk],hi[krow,pk],muk,sqrt(Mk))
-        } else {
-          ll <- t(lo)[pk,krow,drop=F]
-          hh <- t(hi)[pk,krow,drop=F]
-          test <- try( .tnormMVNmatrix( avec=muk, muvec=muk, smat=Mk,
-                                        lo=ll, hi=hh), T)
-          if( inherits(test,'try-error') ){
-            mm <- diag(Mk)
-            mm[mm < tiny] <- tiny
-            test <- .tnorm(length(ll),ll,hh,muk,sqrt(mm))
-          }
-          B[pk,krow] <- test
-        }
+        l  <- matrix(lo[ wk ], 1 )
+        h  <- matrix(hi[ wk ], 1 )
+        wc <- wk[,1]                           # non-zero
+        wp <- c(1:QX)[-wc]                     # zeros
+        mc <- matrix( muB[wc], ncol=1)
+        mp <- matrix( muB[wp], ncol=1)   
+        
+        s11  <- omega[drop=F, wc,wp]%*%sinv[drop=F, wp,wp]
+        mcon <- mc - s11%*%mp
+        Mcon <- solveRcpp( sinv[drop=F, wc,wc] )
+        tmp  <- .tnormMVNmatrix(avec = matrix(B[ wk ], 1), muvec = t(mcon), 
+                               smat = Mcon, lo = l, hi = h)
+        B[ wk ] <- tmp
       }
-      return( t(B) )
+      return( B )
     }
     
-  }else{
+  }else{          # !REDUCT
     
     function(X, Y, sig, beta, PRIOR, lo, hi, rows = NULL, pattern = NULL,
              sinv = NULL, wF, ...){
@@ -13981,44 +14068,45 @@ toConsole <- function( message, object = NULL, verbose = T ){
         
         XX  <- crossprod(X)
         IXX <- chol2inv(chol( XX ) )
-        
         WX  <- crossprod(X,Y)
         WIX <- IXX%*%WX
-        bg  <- matrix( .rMVN(1,as.vector(WIX),
-                             kronecker(sig, IXX)),nrow(IXX),ncol(WIX) )
+        bg  <- matrix( rmvnormRcpp(1,as.vector(WIX),
+                             kronecker(sig, IXX)), nrow(IXX), ncol(WIX) )
         return(bg)
       }
       
-      wc <- which(!is.na(lo) & lo < hi)  #if no interval, assume zero
-      wp <- c(1:length(lo))[-wc]
+      # !REDUCT & PRIOR
+      
+      wc <- which( !is.na(lo) & lo < hi )    # if no interval, assume zero
+      wp <- c(1:length(lo))[-wc]             # is.na(lo) or lo >= hi
       
       XX  <- crossprod(X)
-      IXX <- chol2inv(chol( XX ) )
+      IXX <- chol2inv( chol( XX ) )
       WX  <- crossprod(X,Y)
-      MU  <- IXX%*%WX
-      MM  <- kronecker(sig,IXX)
+      MU  <- matrix( IXX%*%WX, ncol = 1 )
+      MM  <- kronecker( sig, IXX )
       
-      if( length(wp) > 0 ){                # condition on unsampled coeffs = 0
+      if( length(wp) > 0 ){                            # condition on unsampled coeffs = 0
         
-        smat <- MM
-        WIX  <- MU
-        
-        if( length(wp) > length(wc) ){   # matrix is sparse
+        if( length(wp) > length(wc) ){                 # matrix is sparse
 
-          if(is.null(sinv))sinv <- solveRcpp(sig)
-          CC <- kronecker( sinv, XX)                   # note reverse order and inverse
-          MM <- solveRcpp(CC[wc,wc])                   # M_{wc|wp}
-          IM <- CC[wp,wp] - CC[wp,wc]%*%MM%*%CC[wc,wp] # inverse of M_{wp,wp} -> large
-          MU <- t( WIX[wc] - smat[wc,wp]%*%IM%*%WIX[wp] )
+          if( is.null(sinv) )sinv <- solveRcpp(sig)
+          CC <- kronecker( sinv, XX )                  # note reverse order and inverse
+          IC <- solveRcpp(CC[wc,wc])                   # M_{wc|wp}
+          IM <- CC[wp,wp] - CC[wp,wc]%*%IC%*%CC[wc,wp] # inverse of M_{wp,wp} -> large
+          MU <- t( MU[wc] - MM[wc,wp]%*%IM%*%MU[wp] )
+          MM <- IC
           
-        }else{                                         # not sparse
-          M1   <- smat[wc,wp]%*%solveRcpp(smat[wp,wp])
-          MU   <- t( WIX[wc] - M1%*%WIX[wp] )
-          MM   <- smat[wc,wc] - M1%*%smat[wp,wc]
+        } else {                                       # not sparse
+          M1   <- MM[wc,wp]%*%solveRcpp(MM[wp,wp])
+          MU   <- t( MU[wc] - M1%*%MU[wp] )
+          MM   <- MM[wc,wc] - M1%*%MM[wp,wc]
         }
+      } else {
+        MU <- t(MU)
       }
       
-      beta[wc] <- .tnormMVNmatrix(avec = matrix(beta[wc],1), muvec = matrix(MU,1), 
+      beta[wc] <- .tnormMVNmatrix(avec = matrix(beta[wc],1), muvec = MU, 
                                   smat = MM, lo = matrix(lo[wc],1), 
                                   hi = matrix(hi[wc],1))
       return(beta)

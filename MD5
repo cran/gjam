@@ -1,10 +1,10 @@
-fa38049332b6ee577829f19040483195 *DESCRIPTION
+c1320b8ebf97fc988a750a048b7a6365 *DESCRIPTION
 d449805c15c91283b1d4e5615ebf74c0 *NAMESPACE
 e42d69f213f9a2d937248b75bd9fe27f *R/RcppExports.R
 9864d930e579f03c57e9b39793981022 *R/gjam.r
 842d2770688b7c8b6c4652384662df69 *R/gjamCensorY.r
 8ff66ba967d143260f3d3d87a4483f7b *R/gjamDeZero.r
-7b6ffb0712762f231ecef55cf40ec5c0 *R/gjamHfunctions.R
+97cac4552a94ff7c8f84b09e28b8e2bf *R/gjamHfunctions.R
 97f3673d9d18a527ebbb816d1365883b *R/gjamIIE.r
 18a3612cc5e4dded09682f76bdff9905 *R/gjamIIEplot.r
 38c9b1ae50f92eedac051f36e93bdde4 *R/gjamOrdination.R
@@ -18,13 +18,13 @@ bb37d9963cd10881de2b4753f2f1af80 *R/gjamReZero.r
 a7d8039478b0f1c7040bb94bc5d141c1 *R/gjamTrimY.r
 e16746bd40c28ee673eaf08eb2a0e72a *build/vignette.rds
 4a9a797c014b6c17324fb4837bbb3265 *inst/CITATION
-f676418671382d4964889e03e80854ae *inst/doc/gjamVignette.R
-993e65172cc81f337fcd9ccd14d68c9c *inst/doc/gjamVignette.Rmd
-18030eba21fa0f3e55e93e99aaa4fc33 *inst/doc/gjamVignette.html
-ad5911427a2fc86207015c1f27a43eec *man/gjam-package.Rd
+6b94869b3ec63387d784eb5c988e7664 *inst/doc/gjamVignette.R
+3ec2c4de6dd5a93d511f72e4aa1f443f *inst/doc/gjamVignette.Rmd
+911508521f74c99a636ad8171a4916e5 *inst/doc/gjamVignette.html
+7d23869acdc91f00b5d25f65d97fc54a *man/gjam-package.Rd
 5d666daf2b9dbddc9b9332db1503bab0 *man/gjam.Rd
 9606307a17be1cb93e6412a3a0f0c7c2 *man/gjamCensorY.Rd
-9155fc4c9d2a51c140069bb9cdf89734 *man/gjamConditionalParameters.Rd
+d422654a7ba065cb8345a73ad51308b4 *man/gjamConditionalParameters.Rd
 b01be95ac7f8c16ae59537cbfb77d89a *man/gjamDeZero.Rd
 9a30d22b3d1963363c7cd502fd770c0c *man/gjamFillMissingTimes.Rd
 7bee36e093f9dcdad5a83fb10ea37884 *man/gjamIIE.Rd
@@ -43,4 +43,4 @@ c766b2cf3b2abd570953cbead9ee6d11 *man/gjamTrimY.Rd
 61059660eb073d93e00e8ee054237071 *src/Makevars.win
 c16ce4a562d6b54ad3d774ed4d8db7db *src/RcppExports.cpp
 a6d2648dac1758017e0eabd744bdfc8d *src/cppFns.cpp
-993e65172cc81f337fcd9ccd14d68c9c *vignettes/gjamVignette.Rmd
+3ec2c4de6dd5a93d511f72e4aa1f443f *vignettes/gjamVignette.Rmd

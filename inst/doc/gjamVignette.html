@@ -12,7 +12,7 @@
 
 <meta name="author" content="James S. Clark" />
 
-<meta name="date" content="2022-04-15" />
+<meta name="date" content="2022-05-23" />
 
 <title>Generalized joint attribute modeling - gjam</title>
 
@@ -142,7 +142,7 @@ code span.wa { color: #60a0b0; font-weight: bold; font-style: italic; } /* Warni
 
 <h1 class="title toc-ignore">Generalized joint attribute modeling - gjam</h1>
 <h4 class="author"><a href="http://sites.nicholas.duke.edu/clarklab/">James S. Clark</a></h4>
-<h4 class="date">2022-04-15</h4>
+<h4 class="date">2022-05-23</h4>
 
 
 <div id="TOC">
@@ -213,7 +213,7 @@ code span.wa { color: #60a0b0; font-weight: bold; font-style: italic; } /* Warni
 </ul>
 </div>
 
-<p><strong>version 2.5.2</strong></p>
+<p><strong>version 2.6.2</strong></p>
 <p><strong>citation:</strong></p>
 <p><em>Clark, J.S., D. Nemergut, B. Seyednasrollah, P. Turner, and S. Zhang. 2017. Generalized joint attribute modeling for biodiversity analysis: Median-zero, multivariate, multifarious data, <a href="https://esajournals.onlinelibrary.wiley.com/doi/full/10.1002/ecm.1241">Ecological Monographs, 87, 34–56.</a></em></p>
 <p><a href="http://sites.nicholas.duke.edu/clarklab/code/">website</a></p>
@@ -548,10 +548,10 @@ code span.wa { color: #60a0b0; font-weight: bold; font-style: italic; } /* Warni
 <p>The fitted coefficients in <code>$parameters</code>, as summarized in Table 2. For example, here is posterior mean estimate of unstandardized coefficients <span class="math inline">\(\mathbf{B}_u\)</span>,</p>
 <div class="sourceCode" id="cb9"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb9-1"><a href="#cb9-1" aria-hidden="true" tabindex="-1"></a>out<span class="sc">$</span>parameters<span class="sc">$</span>betaMu</span></code></pre></div>
 <p>Here are posterior summaries,</p>
-<div class="sourceCode" id="cb10"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb10-1"><a href="#cb10-1" aria-hidden="true" tabindex="-1"></a>out<span class="sc">$</span>parameters<span class="sc">$</span>betaMu         <span class="co"># S by M coefficient matrix unstandardized</span></span>
-<span id="cb10-2"><a href="#cb10-2" aria-hidden="true" tabindex="-1"></a>out<span class="sc">$</span>parameters<span class="sc">$</span>betaSe         <span class="co"># S by M coefficient SE</span></span>
-<span id="cb10-3"><a href="#cb10-3" aria-hidden="true" tabindex="-1"></a>out<span class="sc">$</span>parameters<span class="sc">$</span>betaStandXmu   <span class="co"># S by M standardized for X</span></span>
-<span id="cb10-4"><a href="#cb10-4" aria-hidden="true" tabindex="-1"></a>out<span class="sc">$</span>parameters<span class="sc">$</span>betaStandXWmu  <span class="co"># (S-F) by M standardized for W/X, centered factors</span></span>
+<div class="sourceCode" id="cb10"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb10-1"><a href="#cb10-1" aria-hidden="true" tabindex="-1"></a>out<span class="sc">$</span>parameters<span class="sc">$</span>betaMu           <span class="co"># S by M coefficient matrix unstandardized</span></span>
+<span id="cb10-2"><a href="#cb10-2" aria-hidden="true" tabindex="-1"></a>out<span class="sc">$</span>parameters<span class="sc">$</span>betaSe           <span class="co"># S by M coefficient SE</span></span>
+<span id="cb10-3"><a href="#cb10-3" aria-hidden="true" tabindex="-1"></a>out<span class="sc">$</span>parameters<span class="sc">$</span>betaStandXmu     <span class="co"># S by M standardized for X</span></span>
+<span id="cb10-4"><a href="#cb10-4" aria-hidden="true" tabindex="-1"></a>out<span class="sc">$</span>parameters<span class="sc">$</span>betaStandXWmu    <span class="co"># (S-F) by M standardized for W/X, centered factors</span></span>
 <span id="cb10-5"><a href="#cb10-5" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb10-6"><a href="#cb10-6" aria-hidden="true" tabindex="-1"></a>out<span class="sc">$</span>parameters<span class="sc">$</span>betaTable        <span class="co"># SM by stats posterior summary</span></span>
 <span id="cb10-7"><a href="#cb10-7" aria-hidden="true" tabindex="-1"></a>out<span class="sc">$</span>parameters<span class="sc">$</span>betaStandXTable  <span class="co"># SM by stats posterior summary</span></span>
@@ -973,22 +973,22 @@ code span.wa { color: #60a0b0; font-weight: bold; font-style: italic; } /* Warni
 <h2><span style="color:teal">categorical data</span></h2>
 <p>Categorical data have levels within groups. The levels are unordered. The columns in <code>ydata</code> that hold categorical responses are declared as <code>typeNames = &quot;CAT&quot;</code>. In observation vector <span class="math inline">\(\mathbf{y}_{i}\)</span> there are elements for one less than the number of factor levels. Suppose that observations are obtained on attributes of individual plants, each plant being an observation. The group <code>leaf</code> type might have four levels broadleaf decidious <code>bd</code>, needleleaf decidious <code>nd</code>, broadleaf evergreen <code>be</code>, and needleaf evergreen <code>ne</code>. A second group <code>xylem</code> anatomy might have three levels diffuse porous <code>dp</code>, ring porous <code>rp</code>, and tracheid <code>tr</code>. In both cases I assign the last class to be a reference class, <code>other</code>. Ten rows of the response matrix data might look like this:</p>
 <pre><code>##    leaf xylem
-## 1    be    dp
-## 2 other    dp
-## 3    be other
-## 4 other    rp
-## 5    bd other
-## 6    nd other
-## 7    bd    dp</code></pre>
+## 1    bd    dp
+## 2    be    dp
+## 3    bd    rp
+## 4    nd other
+## 5    be    rp
+## 6    bd    rp
+## 7 other    rp</code></pre>
 <p>This <code>data.frame ydata</code> becomes this response matrix <code>y</code>:</p>
 <pre><code>##      leaf_bd leaf_nd leaf_be leaf_other xylem_dp xylem_rp xylem_other
-## [1,]       0       0       1          0        1        0           0
-## [2,]       0       0       0          1        1        0           0
-## [3,]       0       0       1          0        0        0           1
-## [4,]       0       0       0          1        0        1           0
-## [5,]       1       0       0          0        0        0           1
-## [6,]       0       1       0          0        0        0           1
-## [7,]       1       0       0          0        1        0           0</code></pre>
+## [1,]       1       0       0          0        1        0           0
+## [2,]       0       0       1          0        1        0           0
+## [3,]       1       0       0          0        0        1           0
+## [4,]       0       1       0          0        0        0           1
+## [5,]       0       0       1          0        0        1           0
+## [6,]       1       0       0          0        0        1           0
+## [7,]       0       0       0          1        0        1           0</code></pre>
 <p><code>gjam</code> expands the two groups into four and three columns in <code>y</code>, respectively. As for composition data there is one redundant column for each group. Here is an example with simulated data, having two categorical groups:</p>
 <div class="sourceCode" id="cb43"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb43-1"><a href="#cb43-1" aria-hidden="true" tabindex="-1"></a>types <span class="ot">&lt;-</span> <span class="fu">c</span>( <span class="st">&#39;CAT&#39;</span>, <span class="st">&#39;CAT&#39;</span> )</span>
 <span id="cb43-2"><a href="#cb43-2" aria-hidden="true" tabindex="-1"></a>f     <span class="ot">&lt;-</span> <span class="fu">gjamSimData</span>( <span class="at">n =</span> <span class="dv">3000</span>, <span class="at">S =</span> <span class="fu">length</span>(types), <span class="at">typeNames =</span> types )</span>
@@ -1385,32 +1385,32 @@ code span.wa { color: #60a0b0; font-weight: bold; font-style: italic; } /* Warni
 <tr class="even">
 <td align="center"><code>maxHt</code></td>
 <td align="center"><code>CON</code></td>
-<td align="center">”</td>
-<td align="left">”</td>
+<td align="center">&quot;</td>
+<td align="left">&quot;</td>
 </tr>
 <tr class="odd">
 <td align="center"><code>leafN</code></td>
 <td align="center"><code>CON</code></td>
-<td align="center">”</td>
-<td align="left">”</td>
+<td align="center">&quot;</td>
+<td align="left">&quot;</td>
 </tr>
 <tr class="even">
 <td align="center"><code>leafP</code></td>
 <td align="center"><code>CON</code></td>
-<td align="center">”</td>
-<td align="left">”</td>
+<td align="center">&quot;</td>
+<td align="left">&quot;</td>
 </tr>
 <tr class="odd">
 <td align="center"><code>SLA</code></td>
 <td align="center"><code>CON</code></td>
-<td align="center">”</td>
-<td align="left">”</td>
+<td align="center">&quot;</td>
+<td align="left">&quot;</td>
 </tr>
 <tr class="even">
 <td align="center"><code>woodSG</code></td>
 <td align="center"><code>CON</code></td>
-<td align="center">”</td>
-<td align="left">”</td>
+<td align="center">&quot;</td>
+<td align="left">&quot;</td>
 </tr>
 <tr class="odd">
 <td align="center"><code>shade</code></td>
@@ -1421,14 +1421,14 @@ code span.wa { color: #60a0b0; font-weight: bold; font-style: italic; } /* Warni
 <tr class="even">
 <td align="center"><code>drought</code></td>
 <td align="center"><code>OC</code></td>
-<td align="center">”</td>
-<td align="left">”</td>
+<td align="center">&quot;</td>
+<td align="left">&quot;</td>
 </tr>
 <tr class="odd">
 <td align="center"><code>flood</code></td>
 <td align="center"><code>OC</code></td>
-<td align="center">”</td>
-<td align="left">”</td>
+<td align="center">&quot;</td>
+<td align="left">&quot;</td>
 </tr>
 <tr class="even">
 <td align="center"><code>leaf_broaddeciduous</code></td>
@@ -1439,20 +1439,20 @@ code span.wa { color: #60a0b0; font-weight: bold; font-style: italic; } /* Warni
 <tr class="odd">
 <td align="center"><code>leaf_broadevergreen</code></td>
 <td align="center"><code>FC</code></td>
-<td align="center">”</td>
-<td align="left">”</td>
+<td align="center">&quot;</td>
+<td align="left">&quot;</td>
 </tr>
 <tr class="even">
 <td align="center"><code>leaf_needleevergreen</code></td>
 <td align="center"><code>FC</code></td>
-<td align="center">”</td>
-<td align="left">”</td>
+<td align="center">&quot;</td>
+<td align="left">&quot;</td>
 </tr>
 <tr class="odd">
 <td align="center"><code>leaf_other</code></td>
 <td align="center"><code>FC</code></td>
-<td align="center">”</td>
-<td align="left">”</td>
+<td align="center">&quot;</td>
+<td align="left">&quot;</td>
 </tr>
 <tr class="even">
 <td align="center"><code>repro_monoecious</code></td>
@@ -1463,8 +1463,8 @@ code span.wa { color: #60a0b0; font-weight: bold; font-style: italic; } /* Warni
 <tr class="odd">
 <td align="center"><code>xylem_ring</code></td>
 <td align="center"><code>CA</code></td>
-<td align="center">”</td>
-<td align="left">”</td>
+<td align="center">&quot;</td>
+<td align="left">&quot;</td>
 </tr>
 </tbody>
 </table>
