@@ -115,7 +115,9 @@ arma::mat trMVNmatrixRcpp(arma::mat avec, arma::mat muvec,
       
       cid(0) = cindex;
       idx = idxALLm.col(cindex);
-      sin = arma::inv_sympd(smat.submat(idx, idx));
+      arma::mat smatSub = 0.5 * (smat.submat(idx, idx) + trans(smat.submat(idx, idx)));
+      smatSub = 0.5 * (smatSub + trans(smatSub));
+      sin = arma::inv_sympd(smatSub);
       p1 = trans(smat.submat(idx, cid)) * sin;
       
       m1 = mv[cindex] + dot(p1, (av.elem(idx) - mv.elem(idx)));
