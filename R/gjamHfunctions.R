@@ -420,7 +420,7 @@ gjamConditionalParameters <- function( output, conditionOn, nsim = 2000 ){
   gindex <- gindex[lkeep,]
   
   wg     <- which(gindex == 1,arr.ind=T)
-  wc     <- matrix(rep(1:M,S*S),S*M,S)[lkeep,]
+  wc     <- matrix(rep(1:M,S*M),S*M,S)[lkeep,]
   rowG   <- wc[wg]
   gindex <- cbind(rowG,wg)
   tmp    <- as.vector( t(outer(colnames(rho)[notOther],
