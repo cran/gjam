@@ -24,7 +24,7 @@
 \value{
   Returns a list containing two elements.
 
-  \item{\code{y}}{n by S matrix updated with censored {values} substituted for
+  \item{\code{y}}{n by S matrix updated with censored values substituted for
   those falling within \code{intervals}.}
 
   \item{\code{censor}}{\code{list} containing \code{$columns} that are censored and

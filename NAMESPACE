@@ -1,7 +1,6 @@
 
 importFrom("Rcpp", "evalCpp")
-importFrom("grDevices", "pdf", "rgb", "colorRampPalette", "dev.copy2pdf",
-            "graphics.off")
+importFrom("grDevices", "pdf", "rgb", "colorRampPalette", "dev.copy2pdf","graphics.off")
 importFrom("MASS", "ginv", "isoMDS")
 importFrom("RANN", "nn2")
 importFrom("grDevices", "col2rgb", "dev.off")

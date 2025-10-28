@@ -2,39 +2,21 @@
 \alias{gjam-package}
 \alias{GJAM}
 \docType{package}
-\concept{ecology}
-\concept{Bayesian analysis}
-\concept{microbiome}
-\concept{multivariate}
-\concept{hierarchical Bayes}
-\concept{Gibbs sampling}
-\concept{dimension reduction}
-\concept{species distribution model}
-\concept{ecological traits}
-\concept{prediction}
-\concept{ordination}
-\concept{missing data}
-\concept{Tobit}
-\concept{zero inflation}
-\concept{sampling effort}
-\concept{sensitivity}
-\concept{random effects}
 \title{
-  Generalized Joint Attribute Modeling
+Generalized Joint Attribute Modeling
 }
 \description{
-  Inference and prediction for jointly distributed responses that 
-  are combinations of continous and discrete data.  Functions begin with \code{'gjam'} to avoid conflicts with other packages.
+  Analysis of jointly distributed responses that are combinations of continous and discrete data.  
 }
 \details{
-  \tabular{ll}{
-  Package: \tab gjam\cr
-  Type: \tab Package\cr
-  Version: \tab 2.6.2\cr
-  Date: \tab 2022-5-23\cr
-  License: \tab GPL (>= 2)\cr
-  URL: \tab http://sites.nicholas.duke.edu/clarklab/code/\cr
-  }
+\tabular{ll}{
+Package: \tab gjam\cr
+Type: \tab Package\cr
+Version: \tab 2.7\cr
+Date: \tab 2025-10-27\cr
+License: \tab GPL (>= 2)\cr
+LazyLoad: \tab yes\cr
+}
   
 The generalized joint attribute model (gjam) analyzes multivariate data that are combinations of presence-absence, ordinal, continuous, discrete, composition, zero-inflated, and censored.  It does so as a joint distribution over response variables.  gjam provides inference on sensitivity to input variables, correlations between responses on the data scale, model selection, and prediction.  
 
@@ -89,8 +71,6 @@ Posterior simulation is done by Gibbs sampling.  Analysis is done by these funct
 \references{
 Clark, J.S., D. Nemergut, B. Seyednasrollah, P. Turner, and S. Zhang. 2017.  Generalized joint attribute modeling for biodiversity analysis: Median-zero, multivariate, multifarious data.  Ecological Monographs 87, 34-56.
 
-Clark, J.S. 2016. Why species tell more about traits than traits tell us about species: Predictive models.  Ecology 97, 1979-1993.
-  
 Taylor-Rodriguez, D., K. Kaufeld, E. M. Schliep, J. S. Clark, and A. E. Gelfand. 2016.  Joint species distribution modeling: dimension eduction using Dirichlet processes.  Bayesian Analysis, 12, 939-967. doi: 10.1214/16-BA1031.
 }
 \keyword{ package }

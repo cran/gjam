@@ -2,7 +2,7 @@
 \alias{gjam}
 \alias{print.gjam}
 \alias{summary.gjam}
-\title{Gibbs sampler for gjam data}
+\title{Generalized Joint Attribute Modeling}
 \description{
   Analyzes joint attribute data (e.g., species abundance) with Gibbs sampling.  
   Input can be output from \code{\link{gjamSimData}}.  Returns a list of objects from Gibbs sampling that can be plotted by \code{\link{gjamPlot}}.
